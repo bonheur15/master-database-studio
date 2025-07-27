@@ -234,7 +234,7 @@ export function ConnectForm() {
           onValueChange={(v) => setTab(v as typeof tab)}
           className="w-full"
         >
-          <TabsList className="grid grid-cols-2">
+          <TabsList className="grid grid-cols-2 w-[100%]">
             <TabsTrigger value="manual">
               <Database className="mr-2 h-4 w-4" /> Manual
             </TabsTrigger>
