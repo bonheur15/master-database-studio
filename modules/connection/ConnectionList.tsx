@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import Link from "next/link";
 
 export function ConnectionList() {
   const [connections, setConnections] = useState<Connection[]>([]);
@@ -74,7 +75,8 @@ export function ConnectionList() {
       ) : (
         <div className="space-y-2">
           {connections.map((conn) => (
-            <div
+            <Link
+              href={`?connectionId=${conn.id}`}
               key={conn.id}
               className="flex items-center justify-between rounded-md border p-3 hover:bg-muted/50 hover:text-foreground cursor-pointer transition-colors"
             >
@@ -83,7 +85,8 @@ export function ConnectionList() {
                 <div>
                   <p className="font-medium">{conn.name}</p>
                   <p className="text-xs text-muted-foreground ">
-                    {conn.type} - {conn.host || conn.filepath}
+                    {conn.type} -{" "}
+                    {conn.host?.replace(/(.{4}).+(.{4})/, "$1...$2")}
                   </p>
                 </div>
               </div>
@@ -117,7 +120,7 @@ export function ConnectionList() {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-            </div>
+            </Link>
           ))}
         </div>
       )}
