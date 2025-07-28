@@ -1,7 +1,7 @@
 import { Database, PlusCircle, Search, Table } from "lucide-react";
-import React, { useState, useEffect, use } from "react";
+import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils"; // Make sure you have a cn utility
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import {
@@ -23,6 +23,7 @@ import Link from "next/link";
 
 export function ExplorerSidebar() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const connectionId = searchParams.get("connectionId");
   const tableName = searchParams.get("table");
 
@@ -48,7 +49,7 @@ export function ExplorerSidebar() {
           const result = await getMysqlTables(currentConnection);
           if (result.success && result.tables) {
             setTables(result.tables);
-            if (result.tables.length > 0) {
+            if (result.tables.length > 0 && !tableName) {
               setActiveTable(result.tables[0].name);
             }
           } else {
@@ -69,7 +70,7 @@ export function ExplorerSidebar() {
       }
     };
     fetchTables();
-  }, [connectionId]);
+  }, [connectionId, tableName]);
 
   return (
     <div className="flex h-full flex-col gap-4 px-2 py-4">
@@ -126,7 +127,8 @@ export function ExplorerSidebar() {
                   tables.map((table) => (
                     <Link
                       key={table.name}
-                      href={`?connectionId=${connectionId}&table=${table.name}`}
+                      href={`/studio?connectionId=${connectionId}&tableName=${table.name}`}
+                      onClick={() => setActiveTable(table.name)}
                       className={cn(
                         "flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-muted/50 hover:text-foreground",
                         activeTable === table.name &&

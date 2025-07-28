@@ -1,8 +1,8 @@
 "use client";
-
 import { DatabaseZap, Moon, PanelLeft, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import * as React from "react";
+import React from "react";
+import { useSearchParams } from "next/navigation";
 
 import {
   Breadcrumb,
@@ -33,6 +33,9 @@ import { QueryEditor } from "@/modules/master-console/QueryEditor";
 
 export default function StudioPage() {
   const { setTheme, theme } = useTheme();
+  const searchParams = useSearchParams();
+  const connectionId = searchParams.get("connectionId");
+  const tableName = searchParams.get("tableName");
 
   return (
     <TooltipProvider>
@@ -115,7 +118,7 @@ export default function StudioPage() {
 
           {/* --- Main Content --- */}
           <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-            <TableViewer />
+            <TableViewer connectionId={connectionId} tableName={tableName} />
           </main>
 
           {/* --- Footer --- */}
