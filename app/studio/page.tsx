@@ -34,8 +34,6 @@ import { QueryEditor } from "@/modules/master-console/QueryEditor";
 export default function StudioPage() {
   const { setTheme, theme } = useTheme();
   const searchParams = useSearchParams();
-  const connectionId = searchParams.get("connectionId");
-  const tableName = searchParams.get("tableName");
 
   return (
     <TooltipProvider>
@@ -118,7 +116,7 @@ export default function StudioPage() {
 
           {/* --- Main Content --- */}
           <main className="grid flex-1 items-start gap-4 p-4 sm:px-6 sm:py-0 md:gap-8">
-            <TableViewer connectionId={connectionId} tableName={tableName} />
+            <TableViewer />
           </main>
 
           {/* --- Footer --- */}
