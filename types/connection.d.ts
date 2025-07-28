@@ -1,7 +1,7 @@
 export interface Connection {
   id: string; // UUID
   name: string;
-  type: 'postgresql' | 'mysql' | 'sqlite' | 'mongodb'; // Example types
+  type: "postgresql" | "mysql" | "sqlite" | "mongodb"; // Example types
   host?: string;
   port?: number;
   user?: string;
@@ -24,3 +24,21 @@ export interface TableSchema {
   tableName: string;
   columns: TableColumn[];
 }
+
+export type postgresConfig = {
+  host: string;
+  port?: number;
+  user: string;
+  password: string;
+  database: string;
+  ssl: boolean;
+};
+
+export type mongoConfig = {
+  host: string;
+  port?: number;
+  user: string;
+  password: string;
+  database: string;
+  ssl?: boolean;
+};

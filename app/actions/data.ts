@@ -81,9 +81,9 @@ export async function getTableData(
         WHERE i.indrelid = $1::regclass AND i.indisprimary;
       `;
       const pkResult = await pgClient.query(pkQuery, [tableName]);
-      const primaryKeys = pkResult.rows.map(row => row.attname);
+      const primaryKeys = pkResult.rows.map((row) => row.attname);
 
-      columns.forEach(col => {
+      columns.forEach((col) => {
         if (primaryKeys.includes(col.columnName)) {
           col.columnKey = "PRI";
         }
@@ -101,7 +101,10 @@ export async function getTableData(
     }
   } catch (error: any) {
     console.error("Error fetching table data:", error);
-    return { success: false, message: `Failed to fetch table data: ${error.message}` };
+    return {
+      success: false,
+      message: `Failed to fetch table data: ${error.message}`,
+    };
   }
 }
 
@@ -129,7 +132,9 @@ export async function insertRow(
       const values = Object.values(rowData);
       const placeholders = columns.map(() => "?").join(", ");
 
-      const query = `INSERT INTO \`${tableName}\` (\`${columns.join("\`, \`")}\`) VALUES (${placeholders})`;
+      const query = `INSERT INTO \`${tableName}\` (\`${columns.join(
+        "`, `"
+      )}\`) VALUES (${placeholders})`;
       await mysqlConnection.execute(query, values);
       await mysqlConnection.end();
       return { success: true, message: "Row inserted successfully." };
@@ -147,7 +152,9 @@ export async function insertRow(
       const values = Object.values(rowData);
       const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
 
-      const query = `INSERT INTO \"${tableName}\" (\"${columns.join("\", \"")}\") VALUES (${placeholders})`;
+      const query = `INSERT INTO \"${tableName}\" (\"${columns.join(
+        '", "'
+      )}\") VALUES (${placeholders})`;
       await pgClient.query(query, values);
       await pgClient.end();
       return { success: true, message: "Row inserted successfully." };
@@ -156,7 +163,10 @@ export async function insertRow(
     }
   } catch (error: any) {
     console.error("Error inserting row:", error);
-    return { success: false, message: `Failed to insert row: ${error.message}` };
+    return {
+      success: false,
+      message: `Failed to insert row: ${error.message}`,
+    };
   }
 }
 
@@ -211,7 +221,10 @@ export async function updateRow(
     }
   } catch (error: any) {
     console.error("Error updating row:", error);
-    return { success: false, message: `Failed to update row: ${error.message}` };
+    return {
+      success: false,
+      message: `Failed to update row: ${error.message}`,
+    };
   }
 }
 
@@ -254,6 +267,9 @@ export async function deleteRow(
     }
   } catch (error: any) {
     console.error("Error deleting row:", error);
-    return { success: false, message: `Failed to delete row: ${error.message}` };
+    return {
+      success: false,
+      message: `Failed to delete row: ${error.message}`,
+    };
   }
 }

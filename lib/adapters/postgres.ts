@@ -1,4 +1,4 @@
-import { postgresConfig } from "@/types";
+import { postgresConfig } from "@/types/connection";
 import { Client } from "pg";
 
 export const pgConnector = async (configs: postgresConfig) => {
