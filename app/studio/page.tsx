@@ -26,6 +26,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { ConnectForm } from "@/modules/connection/ConnectForm";
+import { ConnectionList } from "@/modules/connection/ConnectionList";
 import { ExplorerSidebar } from "@/modules/data-viewer/ExplorerSidebar";
 import { TableViewer } from "@/modules/data-viewer/TableViewer";
 import { QueryEditor } from "@/modules/master-console/QueryEditor";

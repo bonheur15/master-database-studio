@@ -14,12 +14,7 @@ import { Input } from "@/components/ui/input";
 import { CreateTableDialog } from "./CreateTableDialog";
 import { ConnectForm } from "../connection/ConnectForm";
 import { QueryEditorDialog } from "../master-console/QueryEditorDialog";
-
-// --- Mock Data (replace with your actual data fetching) ---
-const connections = [
-  { id: "local", name: "My Local Connection", icon: Database },
-  { id: "staging", name: "My Staging Connection", icon: Database },
-];
+import { ConnectionList } from "../connection/ConnectionList";
 
 const tables = [
   { id: "users", name: "users", count: 120, icon: Table },
@@ -30,7 +25,6 @@ const tables = [
 // -------------------------------------------------------------
 
 export function ExplorerSidebar() {
-  const [activeConnection, setActiveConnection] = React.useState("local");
   const [activeTable, setActiveTable] = React.useState("users");
 
   return (
@@ -41,24 +35,7 @@ export function ExplorerSidebar() {
           Connections
         </h3>
         <nav className="grid gap-1">
-          {connections.map((conn) => (
-            <a
-              key={conn.id}
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setActiveConnection(conn.id);
-              }}
-              className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-muted/50 hover:text-foreground",
-                activeConnection === conn.id &&
-                  "bg-primary/10 text-primary dark:bg-primary/20"
-              )}
-            >
-              <conn.icon className="h-4 w-4" />
-              {conn.name}
-            </a>
-          ))}
+          <ConnectionList />
           <ConnectForm />
         </nav>
       </div>
