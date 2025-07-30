@@ -3,17 +3,16 @@
 import Editor from "react-simple-code-editor";
 import { highlight, languages } from "prismjs/components/prism-core";
 import "prismjs/components/prism-sql";
-import "prismjs/themes/prism-tomorrow.css"; // Using a pre-built dark theme
+import "prismjs/themes/prism-tomorrow.css";
 import { format } from "sql-formatter";
-
 import {
   History,
   Play,
-  Share,
   Sparkles,
   X,
   FileDown,
   PlusCircle,
+  Loader,
 } from "lucide-react";
 import * as React from "react";
 
@@ -46,21 +45,69 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@/components/ui/resizable";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useConnection } from "@/hooks/use-connection";
+import { executeQuery } from "@/app/actions/query";
+import { Connection } from "@/types/connection";
+import { loadConnections } from "@/lib/connection-storage";
+import { useSearchParams } from "next/navigation";
 
-// Initial tab setup
 const initialTabs = [
   { id: "tab1", name: "Query 1", query: "SELECT * FROM users;" },
-  {
-    id: "tab2",
-    name: "Query 2",
-    query: "SELECT * FROM products\nWHERE category = 'electronics';",
-  },
 ];
 
 export function QueryEditor() {
+  const searchParams = useSearchParams();
+
+  const connectionId = searchParams.get("connectionId");
+  const [activeConnection, setConnection] = React.useState<Connection | null>(
+    null
+  );
+
+  React.useEffect(() => {
+    async function GetConnection() {
+      const connections = await loadConnections();
+      const currentConnection = connections.find(
+        (conn) => conn.id === connectionId
+      );
+
+      if (!currentConnection) {
+        setError("Connection not found.");
+        return;
+      }
+      setConnection(currentConnection);
+    }
+    GetConnection();
+  }, [connectionId]);
+
   const [tabs, setTabs] = React.useState(initialTabs);
   const [activeTabId, setActiveTabId] = React.useState("tab1");
   const [history, setHistory] = React.useState<string[]>([]);
+  const [results, setResults] = React.useState<any[] | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [dbType, setDbType] = React.useState<
+    "mysql" | "postgresql" | "mongodb"
+  >("postgresql");
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
@@ -72,21 +119,43 @@ export function QueryEditor() {
     );
   };
 
-  const handleRunQuery = () => {
-    if (activeTab && !history.includes(activeTab.query)) {
+  const handleRunQuery = async () => {
+    console.log(activeTab, activeConnection, dbType);
+    if (!activeTab || !activeConnection) {
+      setError("No active connection or query tab.");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setResults(null);
+
+    if (!history.includes(activeTab.query)) {
       setHistory([activeTab.query, ...history]);
     }
-    // In a real app, you would execute the query here
-    alert(`Running query from ${activeTab?.name}:\n${activeTab?.query}`);
+
+    const { data, error } = await executeQuery(
+      { ...activeConnection, type: dbType },
+      activeTab.query
+    );
+
+    if (error) {
+      setError(error);
+    } else {
+      setResults(data);
+    }
+    setIsLoading(false);
   };
 
   const handleFormatQuery = () => {
     if (activeTab) {
       try {
-        const formatted = format(activeTab.query, { language: "sql" });
+        const formatted = format(activeTab.query, {
+          language: dbType === "mongodb" ? "json" : "sql",
+        });
         handleQueryChange(formatted);
       } catch (error) {
-        console.error("Failed to format SQL:", error);
+        console.error("Failed to format query:", error);
       }
     }
   };
@@ -103,12 +172,11 @@ export function QueryEditor() {
   };
 
   const closeTab = (tabId: string) => {
-    if (tabs.length === 1) return; // Don't close the last tab
+    if (tabs.length === 1) return;
 
     const tabIndex = tabs.findIndex((tab) => tab.id === tabId);
     setTabs(tabs.filter((tab) => tab.id !== tabId));
 
-    // Set new active tab
     if (activeTabId === tabId) {
       const newActiveTab = tabs[tabIndex - 1] || tabs[tabIndex + 1];
       setActiveTabId(newActiveTab.id);
@@ -122,10 +190,25 @@ export function QueryEditor() {
           <div>
             <CardTitle>Master Console</CardTitle>
             <CardDescription>
-              Run SQL or MongoDB queries with tabbed editing. [cite: 40, 41, 49]
+              Run SQL or MongoDB queries with tabbed editing.
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
+            <Select
+              onValueChange={(value) => setDbType(value as any)}
+              defaultValue={dbType}
+            >
+              <SelectTrigger className="w-[150px]">
+                <SelectValue placeholder="Select DB Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="postgresql">PostgreSQL</SelectItem>
+                <SelectItem value="mysql">MySQL</SelectItem>
+                <SelectItem value="mongodb" disabled>
+                  MongoDB
+                </SelectItem>
+              </SelectContent>
+            </Select>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -182,17 +265,25 @@ export function QueryEditor() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button className="gap-x-2" onClick={handleRunQuery}>
-              <Play className="h-4 w-4" /> Run Query
+            <Button
+              className="gap-x-2"
+              onClick={handleRunQuery}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader className="h-4 w-4 animate-spin" />
+              ) : (
+                <Play className="h-4 w-4" />
+              )}
+              Run Query
             </Button>
           </div>
         </CardHeader>
-
-        <CardContent className="flex-1 flex flex-col p-0">
+        <CardContent className="flex-1 flex flex-col p-0 ">
           <Tabs
             value={activeTabId}
             onValueChange={setActiveTabId}
-            className="flex-1 flex flex-col"
+            className="flex-1 flex flex-col h-full"
           >
             <div className="px-4">
               <TabsList className="h-auto">
@@ -234,7 +325,11 @@ export function QueryEditor() {
             </div>
 
             {tabs.map((tab) => (
-              <TabsContent key={tab.id} value={tab.id} className="flex-1 mt-0">
+              <TabsContent
+                key={tab.id}
+                value={tab.id}
+                className="flex-1 mt-0 h-full"
+              >
                 <Editor
                   value={tab.query}
                   onValueChange={handleQueryChange}
@@ -249,11 +344,88 @@ export function QueryEditor() {
             ))}
           </Tabs>
         </CardContent>
+        <ResultViewer results={results} error={error} isLoading={isLoading} />
 
         <CardFooter className="text-sm text-muted-foreground border-t pt-4">
-          Status: Ready | Results will be shown in a new panel below.
+          Status:{" "}
+          {isLoading
+            ? "Running query..."
+            : error
+            ? `Error: ${error}`
+            : results
+            ? `${results.length} rows returned`
+            : "Ready"}
         </CardFooter>
       </Card>
     </TooltipProvider>
+  );
+}
+
+function ResultViewer({
+  results,
+  error,
+  isLoading,
+}: {
+  results: any[] | null;
+  error: string | null;
+  isLoading: boolean;
+}) {
+  if (isLoading) {
+    return (
+      <div className="p-4 flex items-center justify-center h-full">
+        <Loader className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 text-red-500 bg-red-500/10 rounded-lg m-4">
+        {error}
+      </div>
+    );
+  }
+
+  if (!results) {
+    return (
+      <div className="p-4 text-center text-muted-foreground">
+        Run a query to see results.
+      </div>
+    );
+  }
+
+  if (results.length === 0) {
+    return (
+      <div className="p-4 text-center text-muted-foreground">
+        Query returned no results.
+      </div>
+    );
+  }
+
+  const headers = Object.keys(results[0]);
+
+  return (
+    <div className="h-full overflow-auto">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {headers.map((header) => (
+              <TableHead key={header}>{header}</TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {results.map((row, rowIndex) => (
+            <TableRow key={rowIndex}>
+              {headers.map((header) => (
+                <TableCell key={header}>
+                  {JSON.stringify(row[header])}
+                </TableCell>
+              ))}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
   );
 }

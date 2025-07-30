@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -24,9 +23,6 @@ export function QueryEditorDialog() {
       <DialogContent className="min-w-3xl">
         <DialogHeader>
           <DialogTitle>Query Console</DialogTitle>
-          <DialogDescription>
-            Write and execute SQL queries against your connected databases.
-          </DialogDescription>
         </DialogHeader>
         <QueryEditor />
       </DialogContent>
