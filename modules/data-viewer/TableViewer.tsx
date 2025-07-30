@@ -62,6 +62,9 @@ import {
   updateRow,
   deleteRow,
 } from "@/app/actions/data";
+import dynamic from "next/dynamic";
+
+const JsonViewer = dynamic(() => import("./JsonViewer"), { ssr: false });
 
 export function TableViewer() {
   const searchParams = useSearchParams();
@@ -83,6 +86,7 @@ export function TableViewer() {
   >({});
 
   const fetchTableData = useCallback(async () => {
+    console.log("Fetching table data for:", connectionId, tableName);
     if (!connectionId || !tableName) {
       setLoading(false);
       setError("No connection or table selected.");
@@ -105,12 +109,14 @@ export function TableViewer() {
       setConnection(currentConnection);
 
       const result = await getTableData(currentConnection, tableName);
-      if (result.success && result.data && result.schema) {
+      if (result.success && result.data) {
         setTableData(
           result.data as Record<string, string | number | boolean | null>[]
         );
-        setTableSchema(result.schema);
-        setVisibleColumns(result.schema.columns.map((col) => col.columnName));
+        if (result.schema) {
+          setTableSchema(result.schema);
+          setVisibleColumns(result.schema.columns.map((col) => col.columnName));
+        }
       } else {
         setError(result.message || "Failed to fetch table data.");
         setTableData([]);
@@ -335,11 +341,37 @@ export function TableViewer() {
     );
   }
 
-  if (!tableSchema || !tableData) {
+  if (!tableData) {
     return (
       <Card className="h-full flex flex-col items-center justify-center">
         <p className="text-muted-foreground">
           No schema or data available for this table.
+        </p>
+      </Card>
+    );
+  }
+
+  if (connection?.type === "mongodb") {
+    return (
+      <Card className="h-full flex flex-col">
+        <CardHeader>
+          <CardTitle>{tableName}</CardTitle>
+          <CardDescription>
+            Viewing documents in the &quot;{tableName}&quot; collection.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex-1 overflow-auto">
+          <JsonViewer data={tableData} />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!tableSchema) {
+    return (
+      <Card className="h-full flex flex-col items-center justify-center">
+        <p className="text-muted-foreground">
+          No schema available for this table.
         </p>
       </Card>
     );

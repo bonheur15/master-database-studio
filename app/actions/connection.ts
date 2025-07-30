@@ -48,7 +48,12 @@ export async function testConnection(
           message: `Successfully connected to PostgreSQL at ${connection.host}:${connection.port}.`,
         };
       case "mongodb":
-        const mongoUri = `mongodb://${connection.user}:${connection.password}@${connection.host}:${connection.port}/${connection.database}`;
+        let mongoUri: string;
+        if (connection.protocol === "mongodb+srv") {
+          mongoUri = `mongodb+srv://${connection.user}:${connection.password}@${connection.host}/${connection.database}?retryWrites=true&w=majority&appName=Cluster0`;
+        } else {
+          mongoUri = `mongodb://${connection.user}:${connection.password}@${connection.host}:${connection.port}/${connection.database}`;
+        }
         const mongoClient = new MongoClient(mongoUri);
         await mongoClient.connect();
         await mongoClient.close();

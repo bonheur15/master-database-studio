@@ -1,8 +1,9 @@
 "use server";
 
 import mysql from "mysql2/promise";
-import { Client as PgClient } from "pg";
+import { MongoClient } from "mongodb";
 import { Connection, TableSchema, TableColumn } from "@/types/connection";
+import { getCollectionDocs } from "./mongo";
 
 interface GetTableDataResult {
   success: boolean;
@@ -15,6 +16,7 @@ export async function getTableData(
   connection: Connection,
   tableName: string
 ): Promise<GetTableDataResult> {
+  console.log("Fetching table data:", tableName, connection);
   try {
     if (connection.type === "mysql") {
       const mysqlConnection = await mysql.createConnection({
@@ -106,10 +108,40 @@ export async function getTableData(
       const schema: TableSchema = { tableName, columns };
 
       // Get data
-      const dataResult = await pgClient.query(`SELECT * FROM \"${tableName}\"`);
+      const dataResult = await pgClient.query(`SELECT * FROM "${tableName}"`);
       await pgClient.end();
 
       return { success: true, data: dataResult.rows, schema };
+    } else if (connection.type === "mongodb") {
+      console.log("MongoDB connection details:", tableName, connection);
+      let mongoUri: string;
+      if (connection.protocol === "mongodb+srv") {
+        mongoUri = `mongodb+srv://${connection.user}:${connection.password}@${connection.host}/${connection.database}?retryWrites=true&w=majority&appName=Cluster0`;
+      } else {
+        mongoUri = `mongodb://${connection.user}:${connection.password}@${connection.host}:${connection.port}/${connection.database}`;
+      }
+
+      try {
+        const data = await getCollectionDocs({
+          collection: tableName,
+          page: 1,
+          url: mongoUri,
+          pagesize: 10,
+          dbName: connection.database,
+        });
+        return {
+          success: true,
+          data: data,
+        };
+      } catch (error) {
+        console.error("Error fetching MongoDB data:", error);
+        return {
+          success: false,
+          message: `Failed to fetch data from MongoDB: ${
+            (error as Error).message
+          }`,
+        };
+      }
     } else {
       return { success: false, message: "Unsupported database type." };
     }

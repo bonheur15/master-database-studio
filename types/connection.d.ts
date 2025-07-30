@@ -1,14 +1,15 @@
 export interface Connection {
   id: string; // UUID
   name: string;
-  type: "postgresql" | "mysql" | "sqlite" | "mongodb"; // Example types
+  type: "postgresql" | "mysql" | "sqlite" | "mongodb";
   host?: string;
+  protocol?: "mongodb" | "mongodb+srv"; // Corrected from 'protocal'
   port?: number;
   user?: string;
   password?: string;
   database?: string;
   filepath?: string; // For SQLite
-  encryptedCredentials?: string; // To store encrypted sensitive data
+  encryptedCredentials?: string;
 }
 
 export interface TableColumn {

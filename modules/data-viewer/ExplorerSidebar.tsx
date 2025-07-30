@@ -17,7 +17,7 @@ import { CreateTableDialog } from "./CreateTableDialog";
 import { ConnectForm } from "../connection/ConnectForm";
 import { QueryEditorDialog } from "../master-console/QueryEditorDialog";
 import { ConnectionList } from "../connection/ConnectionList";
-import { getMysqlTables } from "@/app/actions/tables";
+import { getMongoTables, getMysqlTables } from "@/app/actions/tables";
 import { loadConnections } from "@/lib/connection-storage";
 import Link from "next/link";
 
@@ -46,7 +46,17 @@ export function ExplorerSidebar() {
         );
 
         if (currentConnection) {
-          const result = await getMysqlTables(currentConnection);
+          let result: {
+            success: boolean;
+            tables?: { name: string; count: number }[];
+            message?: string;
+          } = { success: false, message: "Connection type not supported." };
+          if (currentConnection.type === "mysql") {
+            result = await getMysqlTables(currentConnection);
+          }
+          if (currentConnection.type === "mongodb") {
+            result = await getMongoTables(currentConnection);
+          }
           if (result.success && result.tables) {
             setTables(result.tables);
             if (result.tables.length > 0 && !tableName) {

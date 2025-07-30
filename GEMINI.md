@@ -2,7 +2,6 @@
 
 A modern browser-based database management studio, built with Next.js, that helps developers and data analysts connect, query, and manage databases effortlessly - all with local encrypted credentials, no server-side storage, and a sleek open-source UI.
 
-
 ## **Vision**
 
 Master Database Studio aims to make database management:
@@ -19,7 +18,6 @@ Master Database Studio aims to make database management:
 
 - **Open-source:** Community-driven and extensible.
 
-
 ## **Key Features**
 
 ### **Connection System**
@@ -31,7 +29,6 @@ Master Database Studio aims to make database management:
 - Manual connect: choose database type, fill host/user/pass/db.
 
 - Saved connections in a local vault (can be cleared or exported).
-
 
 ### **Database Support**
 
@@ -57,7 +54,6 @@ Master Database Studio aims to make database management:
 
 - Cassandra
 
-
 ### **Data Explorer (Master Data Viewer)**
 
 - Browse all tables/collections.
@@ -72,7 +68,6 @@ Master Database Studio aims to make database management:
 
 - Foreign key navigation (where available).
 
-
 ### **Query Console (Master Console)**
 
 - SQL Editor for MySQL & PostgreSQL.
@@ -85,11 +80,10 @@ Master Database Studio aims to make database management:
 
 - Export query result (CSV, JSON).
 
-
 ## **Technical Stack**
 
-|   |
-| - |
+|     |
+| --- |
 
 |            |                                                          |
 | ---------- | -------------------------------------------------------- |
@@ -100,34 +94,32 @@ Master Database Studio aims to make database management:
 | Storage    | IndexedDB / LocalStorage                                 |
 | Deployment | Vercel                                                   |
 
-
 ## **Modular Architecture**
 
 1. **Connection Module (/modules/connection)**: Handles creating, storing (encrypted), and managing database connections.
 
 2. **Database Adapters (/lib/adapters)**: Provides a consistent interface for interacting with different database types (MySQL, PostgreSQL, MongoDB).
-/lib/adapters
+   /lib/adapters
+
 - mysqlAdapter.ts
 - postgresAdapter.ts
 - mongoAdapter.ts
 
-
 3. **Master Data Viewer (/modules/data-viewer)**: UI for browsing, viewing, and interacting with data in tables/collections.
-/modules/data-viewer
+   /modules/data-viewer
+
 - ExplorerSidebar.tsx
 - TableViewer.tsx
 - RowEditor.tsx
 
-
 4. **Master Console (/modules/query-console)**: UI for manually running SQL or MongoDB queries.
-/modules/query-console
+   /modules/query-console
+
 - QueryEditor.tsx
 - QueryHistory.tsx
 - ResultViewer.tsx
 
-
 5. **UI Framework (/components)**: Core UI components, layout, and theme management.
-
 
 ## **Security Architecture**
 
@@ -138,7 +130,6 @@ Master Database Studio aims to make database management:
 - No credentials or data are sent to external servers.
 
 - Next.js server actions connect to the database at runtime but do not persist credentials on the server.
-
 
 ## **Feature Development Checklist**
 
@@ -158,10 +149,11 @@ Master Database Studio aims to make database management:
 | Theme Toggle                | Required     | ThemeSwitcher.tsx   |
 | Tabbed Query Interface      | Nice-to-Have | Tabs.tsx            |
 
-*** USE SERVER ACTIONS FOR DATABASE CONNECTIONS ***
-*** USE LOCALSTORAGE FOR CREDENTIALS STORAGE ***
-*** USE AES ENCRYPTION FOR CREDENTIALS ***
-*** Dont use api routes for database connections, use server actions even for other backend related ***
-*** will make homepage later but for now it will be at /studio everything will be in /studio ****
-*** The homepage will be a simple landing page with links to the studio and documentation ***
-*** dONT RUN BUILD OR START COMMANDS OR LINT, JUST MAKE SURE THE CODE YOU WRITE IS CORRECT AND WORKS ***
+**_ USE SERVER ACTIONS FOR DATABASE CONNECTIONS _**
+**_ USE LOCALSTORAGE FOR CREDENTIALS STORAGE _**
+**_ USE AES ENCRYPTION FOR CREDENTIALS _**
+**_ Dont use api routes for database connections, use server actions even for other backend related _**
+**\* will make homepage later but for now it will be at /studio everything will be in /studio \*\***
+**_ The homepage will be a simple landing page with links to the studio and documentation _**
+**_ dONT RUN BUILD OR START COMMANDS OR LINT, JUST MAKE SURE THE CODE YOU WRITE IS CORRECT AND WORKS _**
+**\* use bun to install packages \*\*\***

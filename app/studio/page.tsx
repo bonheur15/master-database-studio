@@ -44,7 +44,8 @@ export default function StudioPage() {
             <a className="flex items-center gap-2 font-semibold" href="#">
               <DatabaseZap className="h-6 w-6 text-primary" />
               <span className="text-xl font-bold tracking-tighter bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                MasterDB
+                MasterDB{" "}
+                <span className="text-xs text-muted-foreground">beta</span>
               </span>
             </a>
           </div>
@@ -121,7 +122,9 @@ export default function StudioPage() {
 
           {/* --- Footer --- */}
           <footer className="text-center p-4 text-sm text-muted-foreground">
-            © {new Date().getFullYear()} MasterDB. All rights reserved.
+            © {new Date().getFullYear()} MasterDB{" "}
+            <span className="text-muted text-[10px]">beta</span>. All rights
+            reserved.
           </footer>
         </div>
       </div>

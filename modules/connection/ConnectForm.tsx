@@ -42,83 +42,99 @@ import { addConnection } from "@/lib/connection-storage";
 import { testConnection } from "@/app/actions/connection";
 import { Toaster } from "@/components/ui/sonner";
 
+const initialDetails = {
+  name: "",
+  type: "mysql" as Connection["type"],
+  protocol: undefined as Connection["protocol"],
+  host: "localhost",
+  port: "3306",
+  user: "",
+  password: "",
+  database: "",
+};
+
 export function ConnectForm() {
   const router = useRouter();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [tab, setTab] = useState<"manual" | "auto">("manual");
-
-  const [connectionName, setConnectionName] = useState("");
-  const [dbType, setDbType] = useState<Connection["type"]>("mysql");
-  const [host, setHost] = useState("localhost");
-  const [port, setPort] = useState("3306");
-  const [user, setUser] = useState("");
-  const [password, setPassword] = useState("");
-  const [database, setDatabase] = useState("");
+  const [details, setDetails] = useState(initialDetails);
   const [connectionString, setConnectionString] = useState("");
   const [saveToVault, setSaveToVault] = useState(true);
   const [testingConnection, setTestingConnection] = useState(false);
 
-  useEffect(() => {
-    const defaultPort = match(dbType)
+  const handleDetailsChange = (updates: Partial<typeof details>) => {
+    setDetails((prev) => ({ ...prev, ...updates }));
+  };
+
+  const handleTypeChange = (newType: Connection["type"]) => {
+    const defaultPort = match(newType)
       .with("mysql", () => "3306")
       .with("postgresql", () => "5432")
       .with("mongodb", () => "27017")
       .otherwise(() => "");
-    setPort(defaultPort);
-  }, [dbType]);
 
-  const connectionStringExample = match(dbType)
+    handleDetailsChange({
+      type: newType,
+      port: defaultPort,
+      // Default to 'mongodb+srv' for new MongoDB connections
+      protocol: newType === "mongodb" ? "mongodb+srv" : undefined,
+    });
+  };
+
+  const connectionStringExample = match(details.type)
     .with("mysql", () => "mysql://user:pass@host:3306/db")
     .with("postgresql", () => "postgresql://user:pass@host:5432/db")
     .with("mongodb", () => "mongodb+srv://user:pass@cluster.mongodb.net/db")
     .otherwise(() => "protocol://user:pass@host/db");
 
   const resetForm = () => {
-    setConnectionName("");
-    setDbType("mysql");
-    setHost("localhost");
-    setPort("3306");
-    setUser("");
-    setPassword("");
-    setDatabase("");
+    setDetails(initialDetails);
     setConnectionString("");
     setSaveToVault(true);
     setTab("manual");
   };
 
-  const parseConnectionString = (str: string) => {
+  const parseConnectionString = (
+    str: string
+  ): Omit<typeof initialDetails, "name"> => {
     try {
       const url = new URL(str);
-      const protocol = url.protocol.replace(":", "");
-      const [username, pass] = url.username
-        ? [url.username, url.password]
-        : ["", ""];
-      const db = url.pathname.replace("/", "");
+      const urlProtocol = url.protocol.replace(":", "");
 
-      const type = match(protocol)
-        .with("mysql", () => "mysql")
-        .with("postgres", () => "postgresql")
-        .with("postgresql", () => "postgresql")
-        .with("mongodb+srv", () => "mongodb")
-        .with("mongodb", () => "mongodb")
-        .otherwise(() => {
-          throw new Error("Unsupported protocol");
-        });
+      if (
+        !["mysql", "postgres", "postgresql", "mongodb", "mongodb+srv"].includes(
+          urlProtocol
+        )
+      ) {
+        throw new Error("Unsupported protocol");
+      }
+
+      const type: Connection["type"] = urlProtocol.startsWith("mongo")
+        ? "mongodb"
+        : urlProtocol.startsWith("postgres")
+        ? "postgresql"
+        : "mysql";
+
+      const protocol =
+        type === "mongodb"
+          ? (urlProtocol as Connection["protocol"])
+          : undefined;
+
+      const defaultPort = match(type)
+        .with("mysql", () => "3306")
+        .with("postgresql", () => "5432")
+        .with("mongodb", () => "27017")
+        .otherwise(() => "");
 
       return {
         type,
-        user: username,
-        password: pass,
+        protocol,
+        user: decodeURIComponent(url.username),
+        password: decodeURIComponent(url.password),
         host: url.hostname,
-        port:
-          url.port ||
-          match(type)
-            .with("mysql", () => "3306")
-            .with("postgresql", () => "5432")
-            .with("mongodb", () => "27017")
-            .otherwise(() => ""),
-        database: db,
+        port: url.port || defaultPort,
+        database: url.pathname.replace("/", ""),
       };
     } catch (e) {
       throw new Error("Invalid connection string");
@@ -127,47 +143,44 @@ export function ConnectForm() {
 
   const handleConnectionStringChange = (str: string) => {
     setConnectionString(str);
-
     try {
       const parsed = parseConnectionString(str);
-      setDbType(parsed.type as Connection["type"]);
-      setUser(parsed.user);
-      setPassword(parsed.password);
-      setHost(parsed.host);
-      setPort(parsed.port);
-      setDatabase(parsed.database);
+      handleDetailsChange(parsed);
       toast.success("Connection string parsed successfully!");
-    } catch (e) {
-      toast.error("Invalid connection string format.");
+    } catch (e: any) {
+      toast.error(e.message || "Invalid connection string format.");
     }
+  };
+
+  const getConnectionPayload = () => {
+    const payload: Omit<Connection, "id" | "filepath"> = {
+      name: details.name,
+      type: details.type,
+      host: details.host,
+      port: parseInt(details.port, 10),
+      user: details.user,
+      password: details.password,
+      database: details.database,
+    };
+    if (details.type === "mongodb") {
+      payload.protocol = details.protocol;
+    }
+    return payload;
   };
 
   const handleTestConnection = async () => {
     setTestingConnection(true);
     try {
-      const connectionDetails = {
-        name: connectionName,
-        type: dbType,
-        host,
-        port: parseInt(port),
-        user,
-        password,
-        database,
-      };
-      const result = await testConnection(connectionDetails);
+      const result = await testConnection(getConnectionPayload());
       if (result.success) {
         toast.success("Connection Successful", {
           description: result.message,
         });
       } else {
-        toast.error("Test Failed", {
-          description: result.message,
-        });
+        toast.error("Test Failed", { description: result.message });
       }
     } catch (error) {
-      toast.error("Error", {
-        description: "An unexpected error occurred.",
-      });
+      toast.error("Error", { description: "An unexpected error occurred." });
     } finally {
       setTestingConnection(false);
     }
@@ -175,16 +188,7 @@ export function ConnectForm() {
 
   const handleConnect = async () => {
     try {
-      const newConnection: Omit<Connection, "id" | "filepath"> = {
-        name: connectionName,
-        type: dbType,
-        host,
-        port: parseInt(port),
-        user,
-        password,
-        database,
-      };
-
+      const newConnection = getConnectionPayload();
       if (saveToVault) {
         const updatedConnections = await addConnection(newConnection);
         const added = updatedConnections.find(
@@ -193,13 +197,13 @@ export function ConnectForm() {
         );
         if (added) {
           toast.success("Saved", {
-            description: `Connected and saved "${connectionName}"`,
+            description: `Connected and saved "${newConnection.name}"`,
           });
           router.push(`/studio?connectionId=${added.id}`);
         }
       } else {
         toast.success("Connected", {
-          description: `Connected to "${connectionName}"`,
+          description: `Connected to "${newConnection.name}"`,
         });
       }
       setDialogOpen(false);
@@ -234,7 +238,7 @@ export function ConnectForm() {
           onValueChange={(v) => setTab(v as typeof tab)}
           className="w-full"
         >
-          <TabsList className="grid grid-cols-2 w-[100%]">
+          <TabsList className="grid grid-cols-2 w-full">
             <TabsTrigger value="manual">
               <Database className="mr-2 h-4 w-4" /> Manual
             </TabsTrigger>
@@ -247,14 +251,16 @@ export function ConnectForm() {
             <div className="grid gap-4">
               <InputField
                 label="Connection Name"
-                value={connectionName}
-                onChange={setConnectionName}
+                value={details.name}
+                onChange={(v) => handleDetailsChange({ name: v })}
               />
               <div className="space-y-2">
                 <Label>Database Type</Label>
                 <Select
-                  value={dbType}
-                  onValueChange={(v) => setDbType(v as Connection["type"])}
+                  value={details.type}
+                  onValueChange={(v) =>
+                    handleTypeChange(v as Connection["type"])
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -266,21 +272,57 @@ export function ConnectForm() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* MongoDB Protocol Selector */}
+              {details.type === "mongodb" && (
+                <div className="space-y-2">
+                  <Label>Protocol</Label>
+                  <Select
+                    value={details.protocol}
+                    onValueChange={(v) =>
+                      handleDetailsChange({
+                        protocol: v as Connection["protocol"],
+                      })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select MongoDB Protocol" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="mongodb+srv">mongodb+srv</SelectItem>
+                      <SelectItem value="mongodb">mongodb</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-4">
-                <InputField label="Host" value={host} onChange={setHost} />
-                <InputField label="Port" value={port} onChange={setPort} />
+                <InputField
+                  label="Host"
+                  value={details.host}
+                  onChange={(v) => handleDetailsChange({ host: v })}
+                />
+                <InputField
+                  label="Port"
+                  value={details.port}
+                  onChange={(v) => handleDetailsChange({ port: v })}
+                />
               </div>
-              <InputField label="User" value={user} onChange={setUser} />
+              <InputField
+                label="User"
+                value={details.user}
+                onChange={(v) => handleDetailsChange({ user: v })}
+              />
               <InputField
                 label="Password"
-                value={password}
                 type="password"
-                onChange={setPassword}
+                value={details.password}
+                onChange={(v) => handleDetailsChange({ password: v })}
               />
               <InputField
                 label="Database Name"
-                value={database}
-                onChange={setDatabase}
+                value={details.database}
+                onChange={(v) => handleDetailsChange({ database: v })}
               />
             </div>
           </TabsContent>
@@ -289,8 +331,8 @@ export function ConnectForm() {
             <div className="space-y-4">
               <InputField
                 label="Connection Name"
-                value={connectionName}
-                onChange={setConnectionName}
+                value={details.name}
+                onChange={(v) => handleDetailsChange({ name: v })}
               />
               <InputField
                 label="Connection String"
@@ -333,9 +375,7 @@ export function ConnectForm() {
               className="gap-2"
             >
               {testingConnection ? (
-                <span className="animate-spin">
-                  <RefreshCw className="h-4 w-4" />
-                </span>
+                <RefreshCw className="h-4 w-4 animate-spin" />
               ) : (
                 <Beaker className="h-4 w-4" />
               )}

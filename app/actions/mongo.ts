@@ -20,8 +20,16 @@ export async function getCollections({
 
   const collections = [];
   const colls = database.listCollections({}, { nameOnly: true });
+
   for await (const doc of colls) {
-    collections.push(doc);
+    const collectionName = doc.name;
+    const collection = database.collection(collectionName);
+    const count = await collection.estimatedDocumentCount(); // or countDocuments() for more accuracy
+
+    collections.push({
+      name: collectionName,
+      count,
+    });
   }
 
   return collections;
@@ -74,7 +82,7 @@ export async function getCollectionDocs({
   const database = client.db(configs?.database || dbName);
   const col = database.collection(collection);
   const docs = await col.find().skip(offset).limit(pagesize).toArray();
-  return docs;
+  return JSON.parse(JSON.stringify(docs));
 }
 
 export async function insertDoc({
