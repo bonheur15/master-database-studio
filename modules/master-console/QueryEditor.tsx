@@ -1,6 +1,7 @@
 "use client";
 
 import Editor from "react-simple-code-editor";
+// @ts-expect-error due to prism core doesnt have types
 import { highlight, languages } from "prismjs/components/prism-core";
 import "prismjs/components/prism-sql";
 import "prismjs/themes/prism-tomorrow.css";
@@ -102,7 +103,9 @@ export function QueryEditor() {
   const [tabs, setTabs] = React.useState(initialTabs);
   const [activeTabId, setActiveTabId] = React.useState("tab1");
   const [history, setHistory] = React.useState<string[]>([]);
-  const [results, setResults] = React.useState<any[] | null>(null);
+  const [results, setResults] = React.useState<Array<{
+    [key: string]: string | number | boolean | null;
+  }> | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
   const [dbType, setDbType] = React.useState<
@@ -142,7 +145,7 @@ export function QueryEditor() {
     if (error) {
       setError(error);
     } else {
-      setResults(data);
+      setResults(Array.isArray(data) ? data : null);
     }
     setIsLoading(false);
   };
@@ -151,7 +154,7 @@ export function QueryEditor() {
     if (activeTab) {
       try {
         const formatted = format(activeTab.query, {
-          language: dbType === "mongodb" ? "json" : "sql",
+          language: dbType === "mongodb" ? "n1ql" : "sql",
         });
         handleQueryChange(formatted);
       } catch (error) {
@@ -195,7 +198,9 @@ export function QueryEditor() {
           </div>
           <div className="flex items-center gap-2">
             <Select
-              onValueChange={(value) => setDbType(value as any)}
+              onValueChange={(value: "mysql" | "postgresql" | "mongodb") =>
+                setDbType(value)
+              }
               defaultValue={dbType}
             >
               <SelectTrigger className="w-[150px]">
@@ -366,7 +371,7 @@ function ResultViewer({
   error,
   isLoading,
 }: {
-  results: any[] | null;
+  results: Array<Record<string, string | number | boolean | null>> | null;
   error: string | null;
   isLoading: boolean;
 }) {

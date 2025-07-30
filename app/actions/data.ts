@@ -117,7 +117,7 @@ export async function getTableData(
     console.error("Error fetching table data:", error);
     return {
       success: false,
-      message: `Failed to fetch table data: ${error.message}`,
+      message: `Failed to fetch table data: ${(error as Error).message}`,
     };
   }
 }
@@ -179,7 +179,7 @@ export async function insertRow(
     console.error("Error inserting row:", error);
     return {
       success: false,
-  message: `Failed to insert row: ${error.message}`,
+      message: `Failed to insert row: ${(error as Error).message}`,
     };
   }
 }
@@ -237,7 +237,7 @@ export async function updateRow(
     console.error("Error updating row:", error);
     return {
       success: false,
-message: `Failed to update row: ${error.message}`,
+      message: `Failed to update row: ${(error as Error).message}`,
     };
   }
 }
@@ -283,7 +283,7 @@ export async function deleteRow(
     console.error("Error deleting row:", error);
     return {
       success: false,
- message: `Failed to delete row: ${error.message}`,
+      message: `Failed to delete row: ${(error as Error).message}`,
     };
   }
 }

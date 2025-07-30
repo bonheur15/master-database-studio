@@ -11,12 +11,35 @@ export async function executeQuery(
   console.log("Executing query:", query, connectionDetails);
   try {
     let results;
+    if (
+      !connectionDetails.database ||
+      !connectionDetails.host ||
+      !connectionDetails.user ||
+      !connectionDetails.password ||
+      !connectionDetails.port
+    ) {
+      return { error: "Missing required connection details" };
+    }
     if (connectionDetails.type === "mysql") {
-      const connection = await mysqlConnector(connectionDetails);
+      const connection = await mysqlConnector({
+        database: connectionDetails.database,
+        host: connectionDetails.host,
+        user: connectionDetails.user,
+        password: connectionDetails.password,
+        port: connectionDetails.port,
+        ssl: false,
+      });
       [results] = await connection.execute(query);
       await connection.end();
     } else if (connectionDetails.type === "postgresql") {
-      const client = await pgConnector(connectionDetails);
+      const client = await pgConnector({
+        database: connectionDetails.database,
+        host: connectionDetails.host,
+        user: connectionDetails.user,
+        password: connectionDetails.password,
+        port: connectionDetails.port,
+        ssl: false,
+      });
       const { rows } = await client.query(query);
       results = rows;
       await client.end();
@@ -24,7 +47,7 @@ export async function executeQuery(
       throw new Error("Unsupported database type");
     }
     return { data: results };
-  } catch (error: any) {
-    return { error: error.message };
+  } catch (error) {
+    return { error: (error as Error).message };
   }
 }

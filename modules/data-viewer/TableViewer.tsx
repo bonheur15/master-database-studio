@@ -13,7 +13,7 @@ import {
   X,
   Check,
 } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
@@ -56,7 +56,12 @@ import {
 
 import { Connection, TableSchema, TableColumn } from "@/types/connection";
 import { loadConnections } from "@/lib/connection-storage";
-import { getTableData, insertRow, updateRow, deleteRow } from "@/app/actions/data";
+import {
+  getTableData,
+  insertRow,
+  updateRow,
+  deleteRow,
+} from "@/app/actions/data";
 
 export function TableViewer() {
   const searchParams = useSearchParams();
@@ -64,16 +69,20 @@ export function TableViewer() {
   const tableName = searchParams.get("tableName");
 
   const [connection, setConnection] = useState<Connection | null>(null);
-  const [tableData, setTableData] = useState<any[]>([]);
+  const [tableData, setTableData] = useState<
+    Record<string, string | number | boolean | null>[]
+  >([]);
   const [tableSchema, setTableSchema] = useState<TableSchema | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
-  const [editingRowData, setEditingRowData] = useState<any>({});
+  const [editingRowData, setEditingRowData] = useState<
+    Record<string, string | number | boolean | null>
+  >({});
 
-  const fetchTableData = async () => {
+  const fetchTableData = useCallback(async () => {
     if (!connectionId || !tableName) {
       setLoading(false);
       setError("No connection or table selected.");
@@ -84,7 +93,9 @@ export function TableViewer() {
     setError(null);
     try {
       const connections = await loadConnections();
-      const currentConnection = connections.find(conn => conn.id === connectionId);
+      const currentConnection = connections.find(
+        (conn) => conn.id === connectionId
+      );
 
       if (!currentConnection) {
         setError("Connection not found.");
@@ -95,36 +106,49 @@ export function TableViewer() {
 
       const result = await getTableData(currentConnection, tableName);
       if (result.success && result.data && result.schema) {
-        setTableData(result.data);
+        setTableData(
+          result.data as Record<string, string | number | boolean | null>[]
+        );
         setTableSchema(result.schema);
-        setVisibleColumns(result.schema.columns.map(col => col.columnName));
+        setVisibleColumns(result.schema.columns.map((col) => col.columnName));
       } else {
         setError(result.message || "Failed to fetch table data.");
         setTableData([]);
         setTableSchema(null);
       }
-    } catch (err: any) {
-      setError(`An error occurred: ${err.message}`);
+    } catch (err) {
+      setError(`An error occurred: ${(err as Error).message}`);
       setTableData([]);
       setTableSchema(null);
     } finally {
       setLoading(false);
     }
-  };
+  }, [connectionId, tableName]);
 
   useEffect(() => {
     fetchTableData();
-  }, [connectionId, tableName]);
+  }, [connectionId, fetchTableData, tableName]);
 
   const handleSelectAll = (checked: boolean) => {
-    if (tableSchema && tableSchema.columns.some(col => col.columnKey === "PRI")) {
-      const primaryKeyColumn = tableSchema.columns.find(col => col.columnKey === "PRI")?.columnName;
+    if (
+      tableSchema &&
+      tableSchema.columns.some((col) => col.columnKey === "PRI")
+    ) {
+      const primaryKeyColumn = tableSchema.columns.find(
+        (col) => col.columnKey === "PRI"
+      )?.columnName;
       if (primaryKeyColumn) {
-        setSelectedRows(checked ? tableData.map((row) => row[primaryKeyColumn].toString()) : []);
+        setSelectedRows(
+          checked && primaryKeyColumn
+            ? tableData.map((row) => row[primaryKeyColumn]?.toString() || "")
+            : []
+        );
       }
     } else {
       // Fallback if no primary key, or handle as an error/unsupported
-      toast.info("Cannot select all rows", { description: "Table has no primary key defined." });
+      toast.info("Cannot select all rows", {
+        description: "Table has no primary key defined.",
+      });
     }
   };
 
@@ -134,30 +158,48 @@ export function TableViewer() {
     );
   };
 
-  const isAllSelected = tableData.length > 0 && selectedRows.length === tableData.length;
+  const isAllSelected =
+    tableData.length > 0 && selectedRows.length === tableData.length;
   const isIndeterminate =
     selectedRows.length > 0 && selectedRows.length < tableData.length;
 
-  const handleEditClick = (row: any) => {
-    if (tableSchema && tableSchema.columns.some(col => col.columnKey === "PRI")) {
-      const primaryKeyColumn = tableSchema.columns.find(col => col.columnKey === "PRI")?.columnName;
+  const handleEditClick = (
+    row: Record<string, string | number | boolean | null>
+  ) => {
+    if (
+      tableSchema &&
+      tableSchema.columns.some((col) => col.columnKey === "PRI")
+    ) {
+      const primaryKeyColumn = tableSchema.columns.find(
+        (col) => col.columnKey === "PRI"
+      )?.columnName;
       if (primaryKeyColumn) {
-        setEditingRowId(row[primaryKeyColumn].toString());
+        setEditingRowId(
+          row[primaryKeyColumn] ? row[primaryKeyColumn].toString() : ""
+        );
         setEditingRowData({ ...row });
       } else {
-        toast.error("Edit Error", { description: "Table has no primary key defined for editing." });
+        toast.error("Edit Error", {
+          description: "Table has no primary key defined for editing.",
+        });
       }
     } else {
-      toast.error("Edit Error", { description: "Table has no primary key defined for editing." });
+      toast.error("Edit Error", {
+        description: "Table has no primary key defined for editing.",
+      });
     }
   };
 
   const handleSaveEdit = async () => {
     if (!connection || !tableName || !tableSchema || !editingRowId) return;
 
-    const primaryKeyColumn = tableSchema.columns.find(col => col.columnKey === "PRI")?.columnName;
+    const primaryKeyColumn = tableSchema.columns.find(
+      (col) => col.columnKey === "PRI"
+    )?.columnName;
     if (!primaryKeyColumn) {
-      toast.error("Save Error", { description: "Table has no primary key defined." });
+      toast.error("Save Error", {
+        description: "Table has no primary key defined.",
+      });
       return;
     }
 
@@ -166,7 +208,9 @@ export function TableViewer() {
         connection,
         tableName,
         primaryKeyColumn,
-        editingRowData[primaryKeyColumn],
+        typeof editingRowData[primaryKeyColumn] === "boolean"
+          ? null
+          : editingRowData[primaryKeyColumn],
         editingRowData
       );
       if (result.success) {
@@ -177,8 +221,10 @@ export function TableViewer() {
       } else {
         toast.error("Update Failed", { description: result.message });
       }
-    } catch (err: any) {
-      toast.error("Update Error", { description: `An error occurred: ${err.message}` });
+    } catch (err) {
+      toast.error("Update Error", {
+        description: `An error occurred: ${(err as Error).message}`,
+      });
     }
   };
 
@@ -190,9 +236,13 @@ export function TableViewer() {
   const handleDeleteRow = async (rowId: string) => {
     if (!connection || !tableName || !tableSchema) return;
 
-    const primaryKeyColumn = tableSchema.columns.find(col => col.columnKey === "PRI")?.columnName;
+    const primaryKeyColumn = tableSchema.columns.find(
+      (col) => col.columnKey === "PRI"
+    )?.columnName;
     if (!primaryKeyColumn) {
-      toast.error("Delete Error", { description: "Table has no primary key defined." });
+      toast.error("Delete Error", {
+        description: "Table has no primary key defined.",
+      });
       return;
     }
 
@@ -209,8 +259,10 @@ export function TableViewer() {
       } else {
         toast.error("Delete Failed", { description: result.message });
       }
-    } catch (err: any) {
-      toast.error("Delete Error", { description: `An error occurred: ${err.message}` });
+    } catch (err) {
+      toast.error("Delete Error", {
+        description: `An error occurred: ${(err as Error).message}`,
+      });
     }
   };
 
@@ -219,8 +271,8 @@ export function TableViewer() {
 
     // For simplicity, let's assume we are adding an empty row or a row with default values
     // In a real app, you'd open a dialog for user input
-    const newRowData: Record<string, any> = {};
-    tableSchema.columns.forEach(col => {
+    const newRowData: Record<string, unknown> = {};
+    tableSchema.columns.forEach((col) => {
       // Set default values or null based on schema
       if (col.defaultValue !== null) {
         newRowData[col.columnName] = col.defaultValue;
@@ -240,8 +292,16 @@ export function TableViewer() {
       } else {
         toast.error("Add Row Failed", { description: result.message });
       }
-    } catch (err: any) {
-      toast.error("Add Row Error", { description: `An error occurred: ${err.message}` });
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        toast.error("Add Row Error", {
+          description: `An error occurred: ${err.message}`,
+        });
+      } else {
+        toast.error("Add Row Error", {
+          description: "An unknown error occurred.",
+        });
+      }
     }
   };
 
@@ -258,7 +318,9 @@ export function TableViewer() {
     return (
       <Card className="h-full flex flex-col items-center justify-center">
         <p className="text-destructive">Error: {error}</p>
-        <Button onClick={fetchTableData} className="mt-4">Retry</Button>
+        <Button onClick={fetchTableData} className="mt-4">
+          Retry
+        </Button>
       </Card>
     );
   }
@@ -266,7 +328,9 @@ export function TableViewer() {
   if (!tableName || !connectionId) {
     return (
       <Card className="h-full flex flex-col items-center justify-center">
-        <p className="text-muted-foreground">Select a connection and table from the sidebar to view data.</p>
+        <p className="text-muted-foreground">
+          Select a connection and table from the sidebar to view data.
+        </p>
       </Card>
     );
   }
@@ -274,7 +338,9 @@ export function TableViewer() {
   if (!tableSchema || !tableData) {
     return (
       <Card className="h-full flex flex-col items-center justify-center">
-        <p className="text-muted-foreground">No schema or data available for this table.</p>
+        <p className="text-muted-foreground">
+          No schema or data available for this table.
+        </p>
       </Card>
     );
   }
@@ -309,10 +375,17 @@ export function TableViewer() {
           </div>
           <div className="flex items-center gap-2">
             {selectedRows.length > 0 && (
-              <Button variant="destructive" size="sm" className="gap-x-2" onClick={() => {
-                // Implement bulk delete here
-                toast.info("Bulk Delete", { description: `Deleting ${selectedRows.length} rows.` });
-              }}>
+              <Button
+                variant="destructive"
+                size="sm"
+                className="gap-x-2"
+                onClick={() => {
+                  // Implement bulk delete here
+                  toast.info("Bulk Delete", {
+                    description: `Deleting ${selectedRows.length} rows.`,
+                  });
+                }}
+              >
                 <Trash2 className="h-4 w-4" /> Delete ({selectedRows.length})
               </Button>
             )}
@@ -342,12 +415,22 @@ export function TableViewer() {
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button size="sm" variant="outline" className="gap-x-2" onClick={handleAddRow}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-x-2"
+              onClick={handleAddRow}
+            >
               <PlusCircle className="h-4 w-4" /> Add Row
             </Button>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="icon" variant="outline" className="h-9 w-9" onClick={fetchTableData}>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-9 w-9"
+                  onClick={fetchTableData}
+                >
                   <RotateCw className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
@@ -394,8 +477,13 @@ export function TableViewer() {
             </TableHeader>
             <TableBody>
               {tableData.map((row) => {
-                const primaryKeyColumn = tableSchema.columns.find(col => col.columnKey === "PRI")?.columnName;
-                const rowId = primaryKeyColumn ? row[primaryKeyColumn].toString() : JSON.stringify(row); // Fallback if no PK
+                const primaryKeyColumn = tableSchema.columns.find(
+                  (col) => col.columnKey === "PRI"
+                )?.columnName;
+                const rowId =
+                  primaryKeyColumn && row[primaryKeyColumn] !== null
+                    ? row[primaryKeyColumn]?.toString()
+                    : JSON.stringify(row); // Fallback if no PK
 
                 return (
                   <TableRow
@@ -415,7 +503,7 @@ export function TableViewer() {
                         <TableCell key={col.columnName}>
                           {editingRowId === rowId ? (
                             <Input
-                              value={editingRowData[col.columnName]}
+                              value={String(editingRowData[col.columnName])}
                               onChange={(e) =>
                                 setEditingRowData({
                                   ...editingRowData,
