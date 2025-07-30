@@ -1,7 +1,7 @@
 "use server";
 
 import { pgConnector } from "@/lib/adapters/postgres";
-import { postgresConfig } from "@/types";
+import { postgresConfig } from "@/types/connection";
 
 export async function getPgTableNames(configs: postgresConfig) {
   const client = await pgConnector(configs);
