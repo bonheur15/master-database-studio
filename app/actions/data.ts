@@ -6,7 +6,7 @@ import { Connection, TableSchema, TableColumn } from "@/types/connection";
 
 interface GetTableDataResult {
   success: boolean;
-  data?: any[];
+  data?: unknown[];
   schema?: TableSchema;
   message?: string;
 }
@@ -29,14 +29,25 @@ export async function getTableData(
       const [schemaRows] = await mysqlConnection.execute(
         `SHOW COLUMNS FROM \`${tableName}\``
       );
-      const columns: TableColumn[] = (schemaRows as any[]).map((row) => ({
-        columnName: row.Field,
-        dataType: row.Type,
-        isNullable: row.Null === "YES",
-        columnKey: row.Key,
-        defaultValue: row.Default,
-        extra: row.Extra,
-      }));
+      interface MySQLSchemaRow {
+        Field: string;
+        Type: string;
+        Null: string;
+        Key: string;
+        Default: string | null;
+        Extra: string;
+      }
+
+      const columns: TableColumn[] = (schemaRows as MySQLSchemaRow[]).map(
+        (row) => ({
+          columnName: row.Field,
+          dataType: row.Type,
+          isNullable: row.Null === "YES",
+          columnKey: row.Key,
+          defaultValue: row.Default,
+          extra: row.Extra,
+        })
+      );
       const schema: TableSchema = { tableName, columns };
 
       // Get data
@@ -45,7 +56,11 @@ export async function getTableData(
       );
       await mysqlConnection.end();
 
-      return { success: true, data: dataRows as any[], schema };
+      return {
+        success: true,
+        data: dataRows as Record<string, unknown>[],
+        schema,
+      };
     } else if (connection.type === "postgresql") {
       const pgClient = new PgClient({
         host: connection.host,
@@ -68,12 +83,11 @@ export async function getTableData(
         columnName: row.column_name,
         dataType: row.data_type,
         isNullable: row.is_nullable === "YES",
-        columnKey: "", // PostgreSQL doesn't have a direct 'Key' field like MySQL in information_schema.columns
+        columnKey: "",
         defaultValue: row.column_default,
         extra: "",
       }));
 
-      // Fetch primary key information separately for PostgreSQL
       const pkQuery = `
         SELECT a.attname
         FROM pg_index i
@@ -99,7 +113,7 @@ export async function getTableData(
     } else {
       return { success: false, message: "Unsupported database type." };
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error fetching table data:", error);
     return {
       success: false,
@@ -116,7 +130,7 @@ interface CrudResult {
 export async function insertRow(
   connection: Connection,
   tableName: string,
-  rowData: Record<string, any>
+  rowData: Record<string, unknown>
 ): Promise<CrudResult> {
   try {
     if (connection.type === "mysql") {
@@ -161,11 +175,11 @@ export async function insertRow(
     } else {
       return { success: false, message: "Unsupported database type." };
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error inserting row:", error);
     return {
       success: false,
-      message: `Failed to insert row: ${error.message}`,
+  message: `Failed to insert row: ${error.message}`,
     };
   }
 }
@@ -174,8 +188,8 @@ export async function updateRow(
   connection: Connection,
   tableName: string,
   primaryKeyColumn: string,
-  primaryKeyValue: any,
-  rowData: Record<string, any>
+  primaryKeyValue: string | number | null,
+  rowData: Record<string, unknown>
 ): Promise<CrudResult> {
   try {
     if (connection.type === "mysql") {
@@ -219,11 +233,11 @@ export async function updateRow(
     } else {
       return { success: false, message: "Unsupported database type." };
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error updating row:", error);
     return {
       success: false,
-      message: `Failed to update row: ${error.message}`,
+message: `Failed to update row: ${error.message}`,
     };
   }
 }
@@ -232,7 +246,7 @@ export async function deleteRow(
   connection: Connection,
   tableName: string,
   primaryKeyColumn: string,
-  primaryKeyValue: any
+  primaryKeyValue: string | number | null
 ): Promise<CrudResult> {
   try {
     if (connection.type === "mysql") {
@@ -265,11 +279,11 @@ export async function deleteRow(
     } else {
       return { success: false, message: "Unsupported database type." };
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error deleting row:", error);
     return {
       success: false,
-      message: `Failed to delete row: ${error.message}`,
+ message: `Failed to delete row: ${error.message}`,
     };
   }
 }

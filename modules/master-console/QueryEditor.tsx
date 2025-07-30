@@ -201,6 +201,7 @@ export function QueryEditor() {
                     key={tab.id}
                     value={tab.id}
                     className="h-auto p-0"
+                    asChild
                   >
                     <div className="flex items-center gap-2 px-3 py-1.5">
                       <span>{tab.name}</span>
