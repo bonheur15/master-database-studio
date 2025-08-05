@@ -13,12 +13,21 @@ import {
   X,
   Check,
 } from "lucide-react";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
-import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -30,6 +39,15 @@ import {
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -39,6 +57,14 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -53,6 +79,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { Switch } from "@/components/ui/switch";
 
 import { Connection, TableSchema, TableColumn } from "@/types/connection";
 import { loadConnections } from "@/lib/connection-storage";
@@ -66,27 +93,160 @@ import dynamic from "next/dynamic";
 
 const JsonViewer = dynamic(() => import("./JsonViewer"), { ssr: false });
 
+// It's recommended to move AddRowDialog to its own file (e.g., /modules/data-viewer/AddRowDialog.tsx)
+const AddRowDialog = ({
+  isOpen,
+  onClose,
+  schema,
+  connection,
+  tableName,
+  onSuccess,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  schema: TableSchema;
+  connection: Connection;
+  tableName: string;
+  onSuccess: () => void;
+}) => {
+  const [newRowData, setNewRowData] = useState<Record<string, any>>({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      const initialData: Record<string, any> = {};
+      schema.columns.forEach((col) => {
+        if (col.defaultValue !== null && col.defaultValue !== undefined) {
+          initialData[col.columnName] = col.defaultValue;
+        } else if (col.isNullable) {
+          initialData[col.columnName] = null;
+        } else {
+          // Handle various data types with appropriate defaults
+          switch (col.dataType?.toLowerCase()) {
+            case "int":
+            case "integer":
+            case "bigint":
+            case "float":
+            case "double":
+            case "decimal":
+              initialData[col.columnName] = 0;
+              break;
+            case "boolean":
+            case "bool":
+              initialData[col.columnName] = false;
+              break;
+            default:
+              initialData[col.columnName] = "";
+          }
+        }
+      });
+      setNewRowData(initialData);
+    }
+  }, [isOpen, schema]);
+
+  const handleFieldChange = (columnName: string, value: any) => {
+    setNewRowData((prev) => ({ ...prev, [columnName]: value }));
+  };
+
+  const handleSubmit = async () => {
+    setIsSaving(true);
+    try {
+      const result = await insertRow(connection, tableName, newRowData);
+      if (result.success) {
+        toast.success("Row Added", { description: result.message });
+        onSuccess();
+        onClose();
+      } else {
+        toast.error("Add Row Failed", { description: result.message });
+      }
+    } catch (err) {
+      toast.error("Add Row Error", {
+        description: `An error occurred: ${(err as Error).message}`,
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>Add New Row to &quot;{tableName}&quot;</DialogTitle>
+          <DialogDescription>
+            Fill in the details for the new row.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-4">
+          {schema.columns.map((col) => (
+            <div
+              key={col.columnName}
+              className="grid grid-cols-4 items-center gap-4"
+            >
+              <Label htmlFor={col.columnName} className="text-right">
+                {col.columnName}
+                {!col.isNullable && <span className="text-destructive">*</span>}
+              </Label>
+              <div className="col-span-3">
+                <Input
+                  id={col.columnName}
+                  value={newRowData[col.columnName] ?? ""}
+                  onChange={(e) =>
+                    handleFieldChange(col.columnName, e.target.value)
+                  }
+                  placeholder={col.dataType}
+                  disabled={isSaving}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={isSaving}>
+            {isSaving ? "Saving..." : "Save Row"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
 export function TableViewer() {
   const searchParams = useSearchParams();
   const connectionId = searchParams.get("connectionId");
   const tableName = searchParams.get("tableName");
 
   const [connection, setConnection] = useState<Connection | null>(null);
-  const [tableData, setTableData] = useState<
-    Record<string, string | number | boolean | null>[]
-  >([]);
+  const [tableData, setTableData] = useState<Record<string, any>[]>([]);
   const [tableSchema, setTableSchema] = useState<TableSchema | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // UI State
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
-  const [editingRowData, setEditingRowData] = useState<
-    Record<string, string | number | boolean | null>
-  >({});
+  const [editingRowData, setEditingRowData] = useState<Record<string, any>>({});
+  const [isAddRowDialogOpen, setIsAddRowDialogOpen] = useState(false);
+  const [deleteAlert, setDeleteAlert] = useState<{
+    open: boolean;
+    rowIds: string[];
+    isBulk: boolean;
+  }>({ open: false, rowIds: [], isBulk: false });
+
+  // Data processing state
+  const [searchTerm, setSearchTerm] = useState("");
+  const [sortConfig, setSortConfig] = useState<{
+    key: string;
+    direction: "asc" | "desc";
+  } | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const fetchTableData = useCallback(async () => {
-    console.log("Fetching table data for:", connectionId, tableName);
     if (!connectionId || !tableName) {
       setLoading(false);
       setError("No connection or table selected.");
@@ -100,62 +260,51 @@ export function TableViewer() {
       const currentConnection = connections.find(
         (conn) => conn.id === connectionId
       );
-
-      if (!currentConnection) {
-        setError("Connection not found.");
-        setLoading(false);
-        return;
-      }
+      if (!currentConnection) throw new Error("Connection not found.");
       setConnection(currentConnection);
 
       const result = await getTableData(currentConnection, tableName);
       if (result.success && result.data) {
-        setTableData(
-          result.data as Record<string, string | number | boolean | null>[]
-        );
+        setTableData(result.data);
         if (result.schema) {
           setTableSchema(result.schema);
           setVisibleColumns(result.schema.columns.map((col) => col.columnName));
         }
       } else {
-        setError(result.message || "Failed to fetch table data.");
-        setTableData([]);
-        setTableSchema(null);
+        throw new Error(result.message || "Failed to fetch table data.");
       }
     } catch (err) {
-      setError(`An error occurred: ${(err as Error).message}`);
+      setError((err as Error).message);
       setTableData([]);
       setTableSchema(null);
     } finally {
       setLoading(false);
+      setSelectedRows([]);
     }
   }, [connectionId, tableName]);
 
   useEffect(() => {
     fetchTableData();
-  }, [connectionId, fetchTableData, tableName]);
+  }, [fetchTableData]);
+
+  const primaryKeyColumn = useMemo(
+    () =>
+      tableSchema?.columns.find((col) => col.columnKey === "PRI")?.columnName,
+    [tableSchema]
+  );
 
   const handleSelectAll = (checked: boolean) => {
-    if (
-      tableSchema &&
-      tableSchema.columns.some((col) => col.columnKey === "PRI")
-    ) {
-      const primaryKeyColumn = tableSchema.columns.find(
-        (col) => col.columnKey === "PRI"
-      )?.columnName;
-      if (primaryKeyColumn) {
-        setSelectedRows(
-          checked && primaryKeyColumn
-            ? tableData.map((row) => row[primaryKeyColumn]?.toString() || "")
-            : []
-        );
-      }
-    } else {
-      // Fallback if no primary key, or handle as an error/unsupported
+    if (!primaryKeyColumn) {
       toast.info("Cannot select all rows", {
         description: "Table has no primary key defined.",
       });
+      return;
     }
+    setSelectedRows(
+      checked
+        ? processedData.map((row) => row[primaryKeyColumn]?.toString())
+        : []
+    );
   };
 
   const handleSelectRow = (id: string) => {
@@ -164,66 +313,68 @@ export function TableViewer() {
     );
   };
 
-  const isAllSelected =
-    tableData.length > 0 && selectedRows.length === tableData.length;
-  const isIndeterminate =
-    selectedRows.length > 0 && selectedRows.length < tableData.length;
+  const handleSort = (columnName: string) => {
+    setSortConfig((prev) => {
+      const isAsc = prev?.key === columnName && prev.direction === "asc";
+      return { key: columnName, direction: isAsc ? "desc" : "asc" };
+    });
+  };
 
-  const handleEditClick = (
-    row: Record<string, string | number | boolean | null>
-  ) => {
-    if (
-      tableSchema &&
-      tableSchema.columns.some((col) => col.columnKey === "PRI")
-    ) {
-      const primaryKeyColumn = tableSchema.columns.find(
-        (col) => col.columnKey === "PRI"
-      )?.columnName;
-      if (primaryKeyColumn) {
-        setEditingRowId(
-          row[primaryKeyColumn] ? row[primaryKeyColumn].toString() : ""
-        );
-        setEditingRowData({ ...row });
-      } else {
-        toast.error("Edit Error", {
-          description: "Table has no primary key defined for editing.",
-        });
-      }
-    } else {
+  const processedData = useMemo(() => {
+    let filteredData = [...tableData];
+    if (searchTerm) {
+      filteredData = filteredData.filter((row) =>
+        Object.values(row).some((value) =>
+          String(value).toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      );
+    }
+
+    if (sortConfig !== null) {
+      filteredData.sort((a, b) => {
+        const valA = a[sortConfig.key];
+        const valB = b[sortConfig.key];
+        if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+    return filteredData;
+  }, [tableData, searchTerm, sortConfig]);
+
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    return processedData.slice(startIndex, startIndex + rowsPerPage);
+  }, [processedData, currentPage, rowsPerPage]);
+
+  const totalPages = Math.ceil(processedData.length / rowsPerPage);
+
+  const handleEditClick = (row: Record<string, any>) => {
+    if (!primaryKeyColumn) {
       toast.error("Edit Error", {
         description: "Table has no primary key defined for editing.",
       });
+      return;
     }
+    setEditingRowId(row[primaryKeyColumn]?.toString());
+    setEditingRowData({ ...row });
   };
 
   const handleSaveEdit = async () => {
-    if (!connection || !tableName || !tableSchema || !editingRowId) return;
-
-    const primaryKeyColumn = tableSchema.columns.find(
-      (col) => col.columnKey === "PRI"
-    )?.columnName;
-    if (!primaryKeyColumn) {
-      toast.error("Save Error", {
-        description: "Table has no primary key defined.",
-      });
-      return;
-    }
+    if (!connection || !tableName || !primaryKeyColumn || !editingRowId) return;
 
     try {
       const result = await updateRow(
         connection,
         tableName,
         primaryKeyColumn,
-        typeof editingRowData[primaryKeyColumn] === "boolean"
-          ? null
-          : editingRowData[primaryKeyColumn],
+        editingRowId,
         editingRowData
       );
       if (result.success) {
         toast.success("Row Updated", { description: result.message });
         setEditingRowId(null);
-        setEditingRowData({});
-        fetchTableData(); // Refresh data
+        fetchTableData();
       } else {
         toast.error("Update Failed", { description: result.message });
       }
@@ -234,119 +385,63 @@ export function TableViewer() {
     }
   };
 
-  const handleCancelEdit = () => {
-    setEditingRowId(null);
-    setEditingRowData({});
-  };
-
-  const handleDeleteRow = async (rowId: string) => {
-    if (!connection || !tableName || !tableSchema) return;
-
-    const primaryKeyColumn = tableSchema.columns.find(
-      (col) => col.columnKey === "PRI"
-    )?.columnName;
+  const handleDeleteRequest = (rowIds: string[]) => {
     if (!primaryKeyColumn) {
       toast.error("Delete Error", {
         description: "Table has no primary key defined.",
       });
       return;
     }
-
-    try {
-      const result = await deleteRow(
-        connection,
-        tableName,
-        primaryKeyColumn,
-        rowId
-      );
-      if (result.success) {
-        toast.success("Row Deleted", { description: result.message });
-        fetchTableData(); // Refresh data
-      } else {
-        toast.error("Delete Failed", { description: result.message });
-      }
-    } catch (err) {
-      toast.error("Delete Error", {
-        description: `An error occurred: ${(err as Error).message}`,
-      });
-    }
+    setDeleteAlert({ open: true, rowIds, isBulk: rowIds.length > 1 });
   };
 
-  const handleAddRow = async () => {
-    if (!connection || !tableName || !tableSchema) return;
-    const newRowData: Record<string, unknown> = {};
-    tableSchema.columns.forEach((col) => {
-      if (col.defaultValue !== null) {
-        newRowData[col.columnName] = col.defaultValue;
-      } else if (col.isNullable) {
-        newRowData[col.columnName] = null;
-      } else {
-        newRowData[col.columnName] = "";
-      }
-    });
+  const performDelete = async () => {
+    if (!connection || !tableName || !primaryKeyColumn) return;
 
-    try {
-      const result = await insertRow(connection, tableName, newRowData);
-      if (result.success) {
-        toast.success("Row Added", { description: result.message });
-        fetchTableData(); // Refresh data
-      } else {
-        toast.error("Add Row Failed", { description: result.message });
-      }
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        toast.error("Add Row Error", {
-          description: `An error occurred: ${err.message}`,
-        });
-      } else {
-        toast.error("Add Row Error", {
-          description: "An unknown error occurred.",
-        });
-      }
+    const { rowIds } = deleteAlert;
+    const promises = rowIds.map((id) =>
+      deleteRow(connection, tableName, primaryKeyColumn, id)
+    );
+    const results = await Promise.all(promises);
+
+    const successCount = results.filter((r) => r.success).length;
+    const failCount = results.length - successCount;
+
+    if (successCount > 0) {
+      toast.success(`Successfully deleted ${successCount} row(s).`);
+      fetchTableData();
     }
+    if (failCount > 0) {
+      toast.error(`Failed to delete ${failCount} row(s).`);
+    }
+    setDeleteAlert({ open: false, rowIds: [], isBulk: false });
   };
 
-  if (loading) {
+  if (loading)
     return (
-      <Card className="h-full flex flex-col items-center justify-center">
+      <Card className="h-full flex items-center justify-center">
         <RotateCw className="h-8 w-8 animate-spin text-primary" />
         <p className="mt-2 text-muted-foreground">Loading table data...</p>
       </Card>
     );
-  }
-
-  if (error) {
+  if (error)
     return (
-      <Card className="h-full flex flex-col items-center justify-center">
+      <Card className="h-full flex items-center justify-center flex-col">
         <p className="text-destructive">Error: {error}</p>
         <Button onClick={fetchTableData} className="mt-4">
           Retry
         </Button>
       </Card>
     );
-  }
-
-  if (!tableName || !connectionId) {
+  if (!tableName || !connectionId)
     return (
-      <Card className="h-full flex flex-col items-center justify-center">
+      <Card className="h-full flex items-center justify-center">
         <p className="text-muted-foreground">
-          Select a connection and table from the sidebar to view data.
+          Select a connection and table to view data.
         </p>
       </Card>
     );
-  }
-
-  if (!tableData) {
-    return (
-      <Card className="h-full flex flex-col items-center justify-center">
-        <p className="text-muted-foreground">
-          No schema or data available for this table.
-        </p>
-      </Card>
-    );
-  }
-
-  if (connection?.type === "mongodb") {
+  if (connection?.type === "mongodb")
     return (
       <Card className="h-full flex flex-col">
         <CardHeader>
@@ -360,17 +455,21 @@ export function TableViewer() {
         </CardContent>
       </Card>
     );
-  }
-
-  if (!tableSchema) {
+  if (!tableSchema)
     return (
-      <Card className="h-full flex flex-col items-center justify-center">
+      <Card className="h-full flex items-center justify-center">
         <p className="text-muted-foreground">
           No schema available for this table.
         </p>
       </Card>
     );
-  }
+
+  const isAllOnPageSelected =
+    paginatedData.length > 0 &&
+    paginatedData.every((row) => selectedRows.includes(row[primaryKeyColumn!]));
+  const isAnyOnPageSelected = paginatedData.some((row) =>
+    selectedRows.includes(row[primaryKeyColumn!])
+  );
 
   return (
     <TooltipProvider>
@@ -382,23 +481,17 @@ export function TableViewer() {
           </CardDescription>
         </CardHeader>
 
-        {/* --- Unified Toolbar --- */}
         <div className="flex items-center justify-between gap-2 px-6 pb-4">
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input placeholder="Search data..." className="pl-8 w-64" />
+              <Input
+                placeholder="Search data..."
+                className="pl-8 w-64"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-x-2">
-                  <ListFilter className="h-4 w-4" /> Filter
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {/* Add filter options here */}
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
           <div className="flex items-center gap-2">
             {selectedRows.length > 0 && (
@@ -406,12 +499,7 @@ export function TableViewer() {
                 variant="destructive"
                 size="sm"
                 className="gap-x-2"
-                onClick={() => {
-                  // Implement bulk delete here
-                  toast.info("Bulk Delete", {
-                    description: `Deleting ${selectedRows.length} rows.`,
-                  });
-                }}
+                onClick={() => handleDeleteRequest(selectedRows)}
               >
                 <Trash2 className="h-4 w-4" /> Delete ({selectedRows.length})
               </Button>
@@ -446,7 +534,7 @@ export function TableViewer() {
               size="sm"
               variant="outline"
               className="gap-x-2"
-              onClick={handleAddRow}
+              onClick={() => setIsAddRowDialogOpen(true)}
             >
               <PlusCircle className="h-4 w-4" /> Add Row
             </Button>
@@ -470,18 +558,32 @@ export function TableViewer() {
 
         <CardContent className="flex-1 overflow-auto">
           <Table>
-            <TableHeader className="sticky top-0 bg-background">
+            <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>
                 <TableHead className="w-10">
                   <Checkbox
-                    checked={isAllSelected}
-                    onCheckedChange={handleSelectAll}
-                    aria-label="Select all rows"
+                    checked={isAllOnPageSelected}
+                    onCheckedChange={(checked) => {
+                      if (!primaryKeyColumn) return;
+                      const pageIds = paginatedData.map(
+                        (r) => r[primaryKeyColumn]
+                      );
+                      if (checked) {
+                        setSelectedRows((prev) => [
+                          ...new Set([...prev, ...pageIds]),
+                        ]);
+                      } else {
+                        setSelectedRows((prev) =>
+                          prev.filter((id) => !pageIds.includes(id))
+                        );
+                      }
+                    }}
+                    aria-label="Select all rows on this page"
                     data-state={
-                      isIndeterminate
-                        ? "indeterminate"
-                        : isAllSelected
+                      isAllOnPageSelected
                         ? "checked"
+                        : isAnyOnPageSelected
+                        ? "indeterminate"
                         : "unchecked"
                     }
                   />
@@ -493,9 +595,16 @@ export function TableViewer() {
                       <Button
                         variant="ghost"
                         className="p-0 h-auto hover:bg-transparent"
+                        onClick={() => handleSort(col.columnName)}
                       >
                         {col.columnName}
-                        <ArrowUpDown className="ml-2 h-4 w-4 text-muted-foreground" />
+                        <ArrowUpDown
+                          className={cn(
+                            "ml-2 h-4 w-4 text-muted-foreground",
+                            sortConfig?.key === col.columnName &&
+                              "text-foreground"
+                          )}
+                        />
                       </Button>
                     </TableHead>
                   ))}
@@ -503,15 +612,10 @@ export function TableViewer() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tableData.map((row) => {
-                const primaryKeyColumn = tableSchema.columns.find(
-                  (col) => col.columnKey === "PRI"
-                )?.columnName;
-                const rowId =
-                  primaryKeyColumn && row[primaryKeyColumn] !== null
-                    ? row[primaryKeyColumn]?.toString()
-                    : JSON.stringify(row); // Fallback if no PK
-
+              {paginatedData.map((row) => {
+                const rowId = primaryKeyColumn
+                  ? row[primaryKeyColumn]?.toString()
+                  : JSON.stringify(row);
                 return (
                   <TableRow
                     key={rowId}
@@ -527,20 +631,25 @@ export function TableViewer() {
                     {tableSchema.columns
                       .filter((c) => visibleColumns.includes(c.columnName))
                       .map((col) => (
-                        <TableCell key={col.columnName}>
+                        <TableCell
+                          key={col.columnName}
+                          className="max-w-xs truncate"
+                        >
                           {editingRowId === rowId ? (
                             <Input
-                              value={String(editingRowData[col.columnName])}
+                              value={editingRowData[col.columnName] ?? ""}
                               onChange={(e) =>
-                                setEditingRowData({
-                                  ...editingRowData,
+                                setEditingRowData((prev) => ({
+                                  ...prev,
                                   [col.columnName]: e.target.value,
-                                })
+                                }))
                               }
                               className="h-8"
                             />
                           ) : (
-                            row[col.columnName]?.toString()
+                            <span title={String(row[col.columnName])}>
+                              {row[col.columnName]?.toString()}
+                            </span>
                           )}
                         </TableCell>
                       ))}
@@ -559,7 +668,7 @@ export function TableViewer() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8"
-                            onClick={handleCancelEdit}
+                            onClick={() => setEditingRowId(null)}
                           >
                             <X className="h-4 w-4" />
                           </Button>
@@ -579,7 +688,7 @@ export function TableViewer() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                              onClick={() => handleDeleteRow(rowId)}
+                              onClick={() => handleDeleteRequest([rowId])}
                             >
                               <Trash2 className="mr-2 h-4 w-4" /> Delete Row
                             </DropdownMenuItem>
@@ -597,19 +706,93 @@ export function TableViewer() {
         <CardFooter className="border-t pt-4">
           <div className="flex items-center justify-between w-full">
             <div className="text-sm text-muted-foreground">
-              {selectedRows.length} of {tableData.length} row(s) selected.
+              {selectedRows.length} of {processedData.length} row(s) selected.
             </div>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" disabled>
-                Previous
-              </Button>
-              <Button size="sm" variant="outline">
-                Next
-              </Button>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="rows-per-page">Rows per page</Label>
+                <Select
+                  value={String(rowsPerPage)}
+                  onValueChange={(value) => {
+                    setRowsPerPage(Number(value));
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger id="rows-per-page" className="h-8 w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
             </div>
           </div>
         </CardFooter>
       </Card>
+
+      {connection && tableSchema && (
+        <AddRowDialog
+          isOpen={isAddRowDialogOpen}
+          onClose={() => setIsAddRowDialogOpen(false)}
+          schema={tableSchema}
+          connection={connection}
+          tableName={tableName!}
+          onSuccess={fetchTableData}
+        />
+      )}
+
+      <AlertDialog
+        open={deleteAlert.open}
+        onOpenChange={(open) =>
+          !open && setDeleteAlert({ open: false, rowIds: [], isBulk: false })
+        }
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete{" "}
+              {deleteAlert.rowIds.length} row(s).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={performDelete}
+              className={cn(
+                "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              )}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </TooltipProvider>
   );
 }
