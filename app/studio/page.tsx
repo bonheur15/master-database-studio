@@ -2,7 +2,6 @@
 import { DatabaseZap, Moon, PanelLeft, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import React from "react";
-import { useSearchParams } from "next/navigation";
 
 import {
   Breadcrumb,
@@ -13,11 +12,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
+
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
   Tooltip,
@@ -25,16 +20,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { ConnectForm } from "@/modules/connection/ConnectForm";
-import { ConnectionList } from "@/modules/connection/ConnectionList";
 import { ExplorerSidebar } from "@/modules/data-viewer/ExplorerSidebar";
 import { TableViewer } from "@/modules/data-viewer/TableViewer";
-import { QueryEditor } from "@/modules/master-console/QueryEditor";
 
 export default function StudioPage() {
   const { setTheme, theme } = useTheme();
-  const searchParams = useSearchParams();
-
   return (
     <TooltipProvider>
       <div className="flex min-h-screen w-full flex-col bg-muted/40 dark:bg-muted/20">

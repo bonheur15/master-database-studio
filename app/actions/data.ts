@@ -1,7 +1,6 @@
 "use server";
 
 import mysql from "mysql2/promise";
-import { MongoClient } from "mongodb";
 import { Connection, TableSchema, TableColumn } from "@/types/connection";
 import { getCollectionDocs } from "./mongo";
 

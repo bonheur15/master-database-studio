@@ -274,18 +274,13 @@ export function TableViewer() {
 
   const handleAddRow = async () => {
     if (!connection || !tableName || !tableSchema) return;
-
-    // For simplicity, let's assume we are adding an empty row or a row with default values
-    // In a real app, you'd open a dialog for user input
     const newRowData: Record<string, unknown> = {};
     tableSchema.columns.forEach((col) => {
-      // Set default values or null based on schema
       if (col.defaultValue !== null) {
         newRowData[col.columnName] = col.defaultValue;
       } else if (col.isNullable) {
         newRowData[col.columnName] = null;
       } else {
-        // For non-nullable columns without default, provide a placeholder or empty string
         newRowData[col.columnName] = "";
       }
     });
