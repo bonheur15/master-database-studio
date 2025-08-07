@@ -355,6 +355,7 @@ export function ConnectForm() {
         <DialogFooter className="flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center space-x-2">
             <Switch
+              disabled
               id="save-connection"
               checked={saveToVault}
               onCheckedChange={setSaveToVault}

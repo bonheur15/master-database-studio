@@ -12,6 +12,8 @@ import {
   Trash2,
   X,
   Check,
+  XCircle,
+  Database,
 } from "lucide-react";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -37,6 +39,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
@@ -417,31 +420,53 @@ export function TableViewer() {
     setDeleteAlert({ open: false, rowIds: [], isBulk: false });
   };
 
-  if (loading)
+  if (loading) {
     return (
-      <Card className="h-full flex items-center justify-center">
-        <RotateCw className="h-8 w-8 animate-spin text-primary" />
-        <p className="mt-2 text-muted-foreground">Loading table data...</p>
-      </Card>
+      <EmptyState
+        icon={RotateCw}
+        title="Loading Data"
+        description="Fetching table data, please wait..."
+        action={
+          <Button variant="outline" onClick={fetchTableData}>
+            Retry
+          </Button>
+        }
+      />
     );
-  if (error)
+  }
+
+  if (error) {
     return (
-      <Card className="h-full flex items-center justify-center flex-col">
-        <p className="text-destructive">Error: {error}</p>
-        <Button onClick={fetchTableData} className="mt-4">
-          Retry
-        </Button>
-      </Card>
+      <EmptyState
+        icon={XCircle}
+        title="Notice"
+        description={`Failed to load data: ${error}`}
+        action={<Button onClick={fetchTableData}>Retry</Button>}
+      />
     );
-  if (!tableName || !connectionId)
+  }
+
+  if (!connectionId) {
     return (
-      <Card className="h-full flex items-center justify-center">
-        <p className="text-muted-foreground">
-          Select a connection and table to view data.
-        </p>
-      </Card>
+      <EmptyState
+        icon={Database}
+        title="No Connection Selected"
+        description="Please select a database connection from the sidebar to view its tables."
+      />
     );
-  if (connection?.type === "mongodb")
+  }
+
+  if (!tableName) {
+    return (
+      <EmptyState
+        icon={Table}
+        title="No Table Selected"
+        description="Select a table from the sidebar to view its data."
+      />
+    );
+  }
+
+  if (connection?.type === "mongodb") {
     return (
       <Card className="h-full flex flex-col">
         <CardHeader>
@@ -455,14 +480,17 @@ export function TableViewer() {
         </CardContent>
       </Card>
     );
-  if (!tableSchema)
+  }
+
+  if (!tableSchema) {
     return (
-      <Card className="h-full flex items-center justify-center">
-        <p className="text-muted-foreground">
-          No schema available for this table.
-        </p>
-      </Card>
+      <EmptyState
+        icon={TableProperties}
+        title="No Schema Available"
+        description="Could not retrieve schema for this table. It might be empty or inaccessible."
+      />
     );
+  }
 
   const isAllOnPageSelected =
     paginatedData.length > 0 &&

@@ -83,14 +83,14 @@ export function ExplorerSidebar() {
   }, [connectionId, tableName]);
 
   return (
-    <div className="flex h-full flex-col gap-4 px-2 py-4">
+    <div className="flex h-full flex-col gap-4 px-2 py-4 w-[100%]">
       {/* --- Connections Section --- */}
-      <div>
+      <div className="w-[100%]">
         <h3 className="mb-2 px-4 text-xs font-semibold tracking-wider uppercase text-muted-foreground">
           Connections
         </h3>
-        <nav className="grid gap-1">
-          <ConnectionList />
+        <nav className="grid gap-1 w-[100%]">
+          <ConnectionList currentConnectionId={connectionId ?? ""} />
           <ConnectForm />
         </nav>
       </div>
@@ -119,7 +119,7 @@ export function ExplorerSidebar() {
               </div>
 
               {/* Create Table Button */}
-              <CreateTableDialog />
+              {/* <CreateTableDialog /> */}
 
               {/* Table List */}
               <div className="flex flex-col gap-1 max-h-[40vh] w-[100%] overflow-auto">

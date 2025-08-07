@@ -1,18 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Connection } from "@/types/connection";
 import { loadConnections, deleteConnection } from "@/lib/connection-storage";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { toast } from "sonner";
-import { RefreshCw, Trash2, Database } from "lucide-react";
+import { Trash2, Database, Loader2 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,106 +19,195 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import Link from "next/link";
 
-export function ConnectionList() {
+export function ConnectionList({
+  currentConnectionId,
+}: {
+  currentConnectionId: string;
+}) {
+  const router = useRouter();
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const fetchConnections = async () => {
-    setLoading(true);
-    try {
-      const storedConnections = await loadConnections();
-      setConnections(storedConnections);
-    } catch (error) {
-      toast.error("Error loading connections", {
-        description: "Failed to retrieve connections from local storage.",
-      });
-      console.error("Failed to load connections:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
+    const fetchConnections = async () => {
+      if (!currentConnectionId) setLoading(true);
+      try {
+        const storedConnections = await loadConnections();
+        setConnections(storedConnections);
+      } catch {
+        toast.error("Error loading connections");
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchConnections();
-  }, []);
+  }, [currentConnectionId]);
 
   const handleDelete = async (id: string) => {
+    setDeletingId(id);
     try {
       const updatedConnections = await deleteConnection(id);
       setConnections(updatedConnections);
-      toast.success("Connection Deleted", {
-        description: "Connection successfully removed from vault.",
-      });
+      toast.success("Connection Deleted");
+
+      if (currentConnectionId === id) {
+        router.push(window.location.pathname); // Use pathname to clear query params
+      }
     } catch (error) {
-      toast.error("Error deleting connection", {
-        description: "Failed to delete connection from local storage.",
-      });
-      console.error("Failed to delete connection:", error);
+      console.error("Error deleting connection:", error);
+      toast.error("Error deleting connection");
+    } finally {
+      setDeletingId(null);
     }
   };
 
-  return (
-    <>
-      {loading ? (
-        <p>Loading connections...</p>
-      ) : connections.length === 0 ? (
+  const formatHost = (host?: string) => {
+    if (!host) return "";
+    return host.length <= 12
+      ? host
+      : `${host.substring(0, 6)}...${host.substring(host.length - 6)}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (connections.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <Database className="h-12 w-12 text-muted-foreground/50 mb-4" />
         <p className="text-sm text-muted-foreground">
-          No connections saved yet.
+          No connections saved yet
         </p>
-      ) : (
-        <div className="space-y-2">
-          {connections.map((conn) => (
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 max-w-[240px] ">
+      {/* this 240px is a mistake and should be corrected in the future */}
+      {connections.map((conn) => {
+        const isActive = currentConnectionId === conn.id;
+        const isDeleting = deletingId === conn.id;
+
+        return (
+          // The parent div is the key. It holds both the link and the delete button as siblings.
+          <div key={conn.id} className="relative group w-[100%]">
             <Link
               href={`?connectionId=${conn.id}`}
-              key={conn.id}
-              className="flex items-center justify-between rounded-md border p-3 hover:bg-muted/50 hover:text-foreground cursor-pointer transition-colors"
+              className={`
+                block rounded-lg border transition-all duration-200 ease-in-out w-[100%]
+                ${
+                  isActive
+                    ? "bg-primary/10 border-primary/20 shadow-sm ring-1 ring-primary/20"
+                    : "bg-card border-border hover:bg-muted/30 hover:border-muted-foreground/20"
+                }
+                ${isDeleting ? "opacity-50 pointer-events-none" : ""}
+              `}
+              onClick={(e) => {
+                if (isActive) e.preventDefault();
+              }}
             >
-              <div className="flex items-center gap-3">
-                <Database className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="font-medium">{conn.name}</p>
-                  <p className="text-xs text-muted-foreground ">
-                    {conn.type} -{" "}
-                    {conn.host?.replace(/(.{4}).+(.{4})/, "$1...$2")}
-                  </p>
+              <div className="flex items-center justify-between p-4 ">
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div
+                    className={`
+                      flex-shrink-0 p-2 rounded-md transition-colors
+                      ${
+                        isActive
+                          ? "bg-primary/20 text-primary"
+                          : "bg-muted/60 text-muted-foreground group-hover:bg-muted"
+                      }
+                    `}
+                  >
+                    <Database className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p
+                      className={`font-medium text-sm truncate ${
+                        isActive ? "text-primary" : "text-foreground"
+                      }`}
+                    >
+                      {conn.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate mt-0.5">
+                      <span className="font-medium">{conn.type}</span>
+                      {conn.host && (
+                        <>
+                          <span className="mx-1">•</span>
+                          <span>{formatHost(conn.host)}</span>
+                        </>
+                      )}
+                    </p>
+                  </div>
                 </div>
+
+                {/* We reserve space for the button to prevent layout shift */}
+                <div className="flex-shrink-0 ml-2 h-8 w-8" />
               </div>
+
+              {isActive && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary rounded-r-full" />
+              )}
+            </Link>
+
+            {/* --- NEW STRUCTURE --- */}
+            {/* The AlertDialog is now a SIBLING to the Link, not a child. */}
+            {/* It is positioned absolutely within the 'relative group' parent. */}
+            <div className="absolute top-1/2 right-4 -translate-y-1/2">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="text-destructive"
+                    size="sm"
+                    className={`
+                      h-8 w-8 p-0 transition-all duration-200
+                      hover:bg-destructive/10 hover:text-destructive
+                      opacity-0 group-hover:opacity-100 focus:opacity-100
+                      ${isActive && "opacity-100"}
+                    `}
+                    disabled={isDeleting}
                   >
-                    <Trash2 className="h-4 w-4" />
+                    {isDeleting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>
-                      Are you absolutely sure?
-                    </AlertDialogTitle>
+                    <AlertDialogTitle>Delete Connection</AlertDialogTitle>
                     <AlertDialogDescription>
-                      This action cannot be undone. This will permanently delete
-                      the
-                      <span className="font-bold"> {conn.name} </span>{" "}
-                      connection.
+                      Are you sure you want to delete the connection{" "}
+                      <span className="font-semibold text-foreground">
+                        &quot;{conn.name}&quot;
+                      </span>
+                      ? This action cannot be undone.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleDelete(conn.id)}>
+                    <AlertDialogAction
+                      onClick={() => handleDelete(conn.id)}
+                      className="bg-destructive hover:bg-destructive/90"
+                    >
                       Delete
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-            </Link>
-          ))}
-        </div>
-      )}
-    </>
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }
