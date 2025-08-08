@@ -9,6 +9,7 @@ import {
 
 import { PenToolIcon } from "lucide-react";
 import { QueryEditor } from "./QueryEditor";
+import { Suspense } from "react";
 
 export function QueryEditorDialog() {
   return (
@@ -24,7 +25,10 @@ export function QueryEditorDialog() {
         <DialogHeader>
           <DialogTitle>Query Console</DialogTitle>
         </DialogHeader>
-        <QueryEditor />
+        <Suspense>
+          {" "}
+          <QueryEditor />
+        </Suspense>
       </DialogContent>
     </Dialog>
   );
