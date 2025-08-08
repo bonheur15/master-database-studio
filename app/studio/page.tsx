@@ -1,7 +1,7 @@
 "use client";
 import { DatabaseZap, Moon, PanelLeft, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import React, { useEffect } from "react";
+import React, { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
@@ -27,7 +27,14 @@ import { TableViewer } from "@/modules/data-viewer/TableViewer";
 import { addConnection } from "@/lib/connection-storage";
 import { Connection } from "@/types/connection";
 
-export default function StudioPage() {
+export default function StudioLayout() {
+  return (
+    <Suspense>
+      <StudioPage />
+    </Suspense>
+  );
+}
+function StudioPage() {
   const { setTheme, theme } = useTheme();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -65,7 +72,7 @@ export default function StudioPage() {
         });
       }
     }
-  }, [searchParams]);
+  }, [router, searchParams]);
   return (
     <TooltipProvider>
       <div className="flex min-h-screen w-full flex-col bg-muted/40 dark:bg-muted/20">
