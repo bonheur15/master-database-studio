@@ -1,7 +1,9 @@
 "use client";
 import { DatabaseZap, Moon, PanelLeft, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import React from "react";
+import React, { useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
 import {
   Breadcrumb,
@@ -22,9 +24,48 @@ import {
 } from "@/components/ui/tooltip";
 import { ExplorerSidebar } from "@/modules/data-viewer/ExplorerSidebar";
 import { TableViewer } from "@/modules/data-viewer/TableViewer";
+import { addConnection } from "@/lib/connection-storage";
+import { Connection } from "@/types/connection";
 
 export default function StudioPage() {
   const { setTheme, theme } = useTheme();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  useEffect(() => {
+    const token = searchParams.get("token");
+    if (token) {
+      try {
+        const decodedString = atob(token);
+        const connectionData: Omit<Connection, "id"> =
+          JSON.parse(decodedString);
+
+        addConnection(connectionData)
+          .then((connections) => {
+            toast.success("Connection Added", {
+              description: "New connection successfully added from token.",
+            });
+            router.push(
+              "?connectionId=" +
+                connections.find(
+                  (conn) =>
+                    connectionData.database === conn.database &&
+                    connectionData.host === conn.host
+                )?.id
+            );
+          })
+          .catch((error) => {
+            toast.error("Failed to Add Connection", {
+              description: `Error: ${error.message}`,
+            });
+          });
+      } catch (error) {
+        toast.error("Invalid Token", {
+          description: "The provided connection token is invalid.",
+        });
+      }
+    }
+  }, [searchParams]);
   return (
     <TooltipProvider>
       <div className="flex min-h-screen w-full flex-col bg-muted/40 dark:bg-muted/20">
