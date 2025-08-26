@@ -1,7 +1,8 @@
-import { Database, PlusCircle, Search, Table } from "lucide-react";
+"use client";
+import { Search, Table } from "lucide-react";
 import React, { useState, useEffect } from "react";
-import { cn } from "@/lib/utils"; // Make sure you have a cn utility
-import { useSearchParams, useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 import {
@@ -11,19 +12,20 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+
 import { Input } from "@/components/ui/input";
-import { CreateTableDialog } from "./CreateTableDialog";
+
 import { ConnectForm } from "../connection/ConnectForm";
 import { QueryEditorDialog } from "../master-console/QueryEditorDialog";
 import { ConnectionList } from "../connection/ConnectionList";
-import { getMongoTables, getMysqlTables } from "@/app/actions/tables";
+import { getMysqlTables } from "@/app/actions/tables";
 import { loadConnections } from "@/lib/connection-storage";
 import Link from "next/link";
+import { getPgTableNames } from "@/app/actions/postgres";
+import { getCollections } from "@/app/actions/mongo";
 
 export function ExplorerSidebar() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const connectionId = searchParams.get("connectionId");
   const tableName = searchParams.get("table");
 
@@ -55,7 +57,11 @@ export function ExplorerSidebar() {
             result = await getMysqlTables(currentConnection);
           }
           if (currentConnection.type === "mongodb") {
-            result = await getMongoTables(currentConnection);
+            console.log("fuckkkkk", currentConnection);
+            result = await getCollections(currentConnection);
+          }
+          if (currentConnection.type === "postgresql") {
+            result = await getPgTableNames(currentConnection);
           }
           if (result.success && result.tables) {
             setTables(result.tables);
@@ -117,9 +123,6 @@ export function ExplorerSidebar() {
                   className="w-full rounded-lg bg-background pl-8"
                 />
               </div>
-
-              {/* Create Table Button */}
-              {/* <CreateTableDialog /> */}
 
               {/* Table List */}
               <div className="flex flex-col gap-1 max-h-[40vh] w-[100%] overflow-auto">

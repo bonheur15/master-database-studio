@@ -6,7 +6,7 @@ import { Client as PgClient } from "pg";
 import { MongoClient } from "mongodb";
 
 export async function testConnection(
-  connection: Omit<Connection, "id" | "encryptedCredentials">
+  connection: Partial<Connection>
 ): Promise<{ success: boolean; message: string }> {
   console.log("Testing connection:", connection);
 

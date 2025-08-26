@@ -21,25 +21,11 @@ export async function executeQuery(
       return { error: "Missing required connection details" };
     }
     if (connectionDetails.type === "mysql") {
-      const connection = await mysqlConnector({
-        database: connectionDetails.database,
-        host: connectionDetails.host,
-        user: connectionDetails.user,
-        password: connectionDetails.password,
-        port: connectionDetails.port,
-        ssl: false,
-      });
+      const connection = await mysqlConnector(connectionDetails);
       [results] = await connection.execute(query);
       await connection.end();
     } else if (connectionDetails.type === "postgresql") {
-      const client = await pgConnector({
-        database: connectionDetails.database,
-        host: connectionDetails.host,
-        user: connectionDetails.user,
-        password: connectionDetails.password,
-        port: connectionDetails.port,
-        ssl: false,
-      });
+      const client = await pgConnector(connectionDetails);
       const { rows } = await client.query(query);
       results = rows;
       await client.end();

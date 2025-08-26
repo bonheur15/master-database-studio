@@ -2,13 +2,15 @@ export interface Connection {
   id: string; // UUID
   name: string;
   type: "postgresql" | "mysql" | "sqlite" | "mongodb";
-  host?: string;
+  host: string;
   protocol?: "mongodb" | "mongodb+srv"; // Corrected from 'protocal'
+  search?: string;
   port?: number;
-  user?: string;
-  password?: string;
-  database?: string;
+  user: string;
+  password: string;
+  database: string;
   filepath?: string; // For SQLite
+  ssl?: boolean;
   encryptedCredentials?: string;
 }
 
@@ -42,4 +44,21 @@ export type mongoConfig = {
   password: string;
   database: string;
   ssl?: boolean;
+};
+
+export interface CrudResult {
+  success: boolean;
+  message?: string;
+}
+
+const initialDetails = {
+  name: "",
+  type: "mysql" as Connection["type"],
+  protocol: undefined as Connection["protocol"],
+  search: undefined as Connection["search"],
+  host: "localhost",
+  port: undefined as Connection["port"],
+  user: "",
+  password: "",
+  database: "",
 };

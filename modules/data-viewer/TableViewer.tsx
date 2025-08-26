@@ -3,7 +3,6 @@
 import {
   ArrowUpDown,
   EyeOff,
-  ListFilter,
   MoreHorizontal,
   Pencil,
   PlusCircle,
@@ -265,6 +264,8 @@ export function TableViewer() {
       );
       if (!currentConnection) throw new Error("Connection not found.");
       setConnection(currentConnection);
+
+      console.log("consjccdcbdh", currentConnection);
 
       const result = await getTableData(currentConnection, tableName);
       if (result.success && result.data) {

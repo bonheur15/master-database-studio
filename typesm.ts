@@ -4,7 +4,7 @@ export type postgresConfig = {
   user: string;
   password: string;
   database: string;
-  ssl: boolean;
+  ssl?: boolean;
 };
 
 export type mysqlConfig = {

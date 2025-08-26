@@ -9,7 +9,7 @@ import {
   Save,
   RefreshCw,
 } from "lucide-react";
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { match } from "ts-pattern";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -25,7 +25,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -37,108 +36,67 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-import { Connection } from "@/types/connection";
 import { addConnection } from "@/lib/connection-storage";
 import { testConnection } from "@/app/actions/connection";
 import { Toaster } from "@/components/ui/sonner";
-
-const initialDetails = {
-  name: "",
-  type: "mysql" as Connection["type"],
-  protocol: undefined as Connection["protocol"],
-  host: "localhost",
-  port: "3306",
-  user: "",
-  password: "",
-  database: "",
-};
+import {
+  getConnectionPayload,
+  parseConnectionString,
+} from "@/lib/helpers/helpers";
+import { InputField } from "@/components/inputField";
+import type { Connection } from "@/types/connection";
 
 export function ConnectForm() {
+  // const initialDetails = {
+  //   name: "",
+  //   type: "mysql" as Connection["type"],
+  //   protocol: undefined as Connection["protocol"],
+  //   search: undefined as Connection["search"],
+  //   host: "localhost",
+  //   port: undefined as Connection["port"],
+  //   user: "",
+  //   password: "",
+  //   database: "",
+  // };
   const router = useRouter();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [tab, setTab] = useState<"manual" | "auto">("manual");
-  const [details, setDetails] = useState(initialDetails);
+  const [details, setDetails] = useState<Partial<Connection>>();
   const [connectionString, setConnectionString] = useState("");
   const [saveToVault, setSaveToVault] = useState(true);
   const [testingConnection, setTestingConnection] = useState(false);
 
-  const handleDetailsChange = (updates: Partial<typeof details>) => {
+  console.log(details?.port);
+
+  const handleDetailsChange = (updates: Partial<Connection>) => {
     setDetails((prev) => ({ ...prev, ...updates }));
   };
 
   const handleTypeChange = (newType: Connection["type"]) => {
     const defaultPort = match(newType)
-      .with("mysql", () => "3306")
-      .with("postgresql", () => "5432")
-      .with("mongodb", () => "27017")
-      .otherwise(() => "");
+      .with("mysql", () => 3306)
+      .with("postgresql", () => 5432)
+      .with("mongodb", () => 27017)
+      .otherwise(() => undefined);
 
     handleDetailsChange({
       type: newType,
       port: defaultPort,
-      // Default to 'mongodb+srv' for new MongoDB connections
-      protocol: newType === "mongodb" ? "mongodb+srv" : undefined,
     });
   };
 
-  const connectionStringExample = match(details.type)
+  const connectionStringExample = match(details ? details.type : "")
     .with("mysql", () => "mysql://user:pass@host:3306/db")
     .with("postgresql", () => "postgresql://user:pass@host:5432/db")
     .with("mongodb", () => "mongodb+srv://user:pass@cluster.mongodb.net/db")
     .otherwise(() => "protocol://user:pass@host/db");
 
   const resetForm = () => {
-    setDetails(initialDetails);
+    setDetails(undefined);
     setConnectionString("");
     setSaveToVault(true);
     setTab("manual");
-  };
-
-  const parseConnectionString = (
-    str: string
-  ): Omit<typeof initialDetails, "name"> => {
-    try {
-      const url = new URL(str);
-      const urlProtocol = url.protocol.replace(":", "");
-
-      if (
-        !["mysql", "postgres", "postgresql", "mongodb", "mongodb+srv"].includes(
-          urlProtocol
-        )
-      ) {
-        throw new Error("Unsupported protocol");
-      }
-
-      const type: Connection["type"] = urlProtocol.startsWith("mongo")
-        ? "mongodb"
-        : urlProtocol.startsWith("postgres")
-        ? "postgresql"
-        : "mysql";
-
-      const protocol =
-        type === "mongodb"
-          ? (urlProtocol as Connection["protocol"])
-          : undefined;
-
-      const defaultPort = match(type)
-        .with("mysql", () => "3306")
-        .with("postgresql", () => "5432")
-        .with("mongodb", () => "27017")
-        .otherwise(() => "");
-
-      return {
-        type,
-        protocol,
-        user: decodeURIComponent(url.username),
-        password: decodeURIComponent(url.password),
-        host: url.hostname,
-        port: url.port || defaultPort,
-        database: url.pathname.replace("/", ""),
-      };
-    } catch (e) {
-      throw new Error("Invalid connection string");
-    }
   };
 
   const handleConnectionStringChange = (str: string) => {
@@ -147,31 +105,19 @@ export function ConnectForm() {
       const parsed = parseConnectionString(str);
       handleDetailsChange(parsed);
       toast.success("Connection string parsed successfully!");
-    } catch (e: any) {
-      toast.error(e.message || "Invalid connection string format.");
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        toast.error(e.message);
+      } else {
+        toast.error("Invalid connection string format.");
+      }
     }
-  };
-
-  const getConnectionPayload = () => {
-    const payload: Omit<Connection, "id" | "filepath"> = {
-      name: details.name,
-      type: details.type,
-      host: details.host,
-      port: parseInt(details.port, 10),
-      user: details.user,
-      password: details.password,
-      database: details.database,
-    };
-    if (details.type === "mongodb") {
-      payload.protocol = details.protocol;
-    }
-    return payload;
   };
 
   const handleTestConnection = async () => {
     setTestingConnection(true);
     try {
-      const result = await testConnection(getConnectionPayload());
+      const result = await testConnection(getConnectionPayload(details));
       if (result.success) {
         toast.success("Connection Successful", {
           description: result.message,
@@ -179,8 +125,12 @@ export function ConnectForm() {
       } else {
         toast.error("Test Failed", { description: result.message });
       }
-    } catch (error) {
-      toast.error("Error", { description: "An unexpected error occurred." });
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        toast.error(e.message);
+      } else {
+        toast.error("Error", { description: "An unexpected error occurred." });
+      }
     } finally {
       setTestingConnection(false);
     }
@@ -188,7 +138,7 @@ export function ConnectForm() {
 
   const handleConnect = async () => {
     try {
-      const newConnection = getConnectionPayload();
+      const newConnection = getConnectionPayload(details);
       if (saveToVault) {
         const updatedConnections = await addConnection(newConnection);
         const added = updatedConnections.find(
@@ -208,10 +158,14 @@ export function ConnectForm() {
       }
       setDialogOpen(false);
       resetForm();
-    } catch (error) {
-      toast.error("Connection Failed", {
-        description: "Failed to connect or save.",
-      });
+    } catch (e: unknown) {
+      if (e instanceof Error) {
+        toast.error("Connection Failed", {
+          description: e.message,
+        });
+      } else {
+        toast.error("Connection failed");
+      }
     }
   };
 
@@ -235,7 +189,12 @@ export function ConnectForm() {
 
         <Tabs
           value={tab}
-          onValueChange={(v) => setTab(v as typeof tab)}
+          onValueChange={(v) => {
+            setTab(v as typeof tab);
+            if (v === "auto") {
+              handleDetailsChange({ port: undefined }); // clear port when going to string mode
+            }
+          }}
           className="w-full"
         >
           <TabsList className="grid grid-cols-2 w-full">
@@ -251,19 +210,19 @@ export function ConnectForm() {
             <div className="grid gap-4">
               <InputField
                 label="Connection Name"
-                value={details.name}
+                value={details?.name ?? ""}
                 onChange={(v) => handleDetailsChange({ name: v })}
               />
               <div className="space-y-2">
                 <Label>Database Type</Label>
                 <Select
-                  value={details.type}
+                  value={details?.type ?? ""}
                   onValueChange={(v) =>
                     handleTypeChange(v as Connection["type"])
                   }
                 >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Select Database" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="mysql">MySQL</SelectItem>
@@ -274,7 +233,7 @@ export function ConnectForm() {
               </div>
 
               {/* MongoDB Protocol Selector */}
-              {details.type === "mongodb" && (
+              {details?.type === "mongodb" && (
                 <div className="space-y-2">
                   <Label>Protocol</Label>
                   <Select
@@ -299,29 +258,29 @@ export function ConnectForm() {
               <div className="grid grid-cols-2 gap-4">
                 <InputField
                   label="Host"
-                  value={details.host}
+                  value={details?.host ?? ""}
                   onChange={(v) => handleDetailsChange({ host: v })}
                 />
                 <InputField
                   label="Port"
-                  value={details.port}
-                  onChange={(v) => handleDetailsChange({ port: v })}
+                  value={String(details?.port ?? "")}
+                  onChange={(v) => handleDetailsChange({ port: Number(v) })}
                 />
               </div>
               <InputField
                 label="User"
-                value={details.user}
+                value={details?.user ?? ""}
                 onChange={(v) => handleDetailsChange({ user: v })}
               />
               <InputField
                 label="Password"
                 type="password"
-                value={details.password}
+                value={details?.password ?? ""}
                 onChange={(v) => handleDetailsChange({ password: v })}
               />
               <InputField
                 label="Database Name"
-                value={details.database}
+                value={details?.database ?? ""}
                 onChange={(v) => handleDetailsChange({ database: v })}
               />
             </div>
@@ -331,7 +290,7 @@ export function ConnectForm() {
             <div className="space-y-4">
               <InputField
                 label="Connection Name"
-                value={details.name}
+                value={details?.name ?? ""}
                 onChange={(v) => handleDetailsChange({ name: v })}
               />
               <InputField
@@ -392,27 +351,3 @@ export function ConnectForm() {
     </Dialog>
   );
 }
-
-const InputField = ({
-  label,
-  value,
-  onChange,
-  type = "text",
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onChange: (val: string) => void;
-  type?: string;
-  placeholder?: string;
-}) => (
-  <div className="space-y-2">
-    <Label>{label}</Label>
-    <Input
-      type={type}
-      value={value}
-      placeholder={placeholder}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  </div>
-);

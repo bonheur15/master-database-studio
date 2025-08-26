@@ -1,5 +1,5 @@
 // components/landing/HeroSection.tsx
-"use client"; // Required for framer-motion animations
+"use client";
 
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -8,16 +8,16 @@ import { ArrowRight, Github } from "lucide-react";
 
 export function HeroSection() {
   return (
-    <section className="container mx-auto flex h-[calc(100vh-10rem)] max-w-5xl flex-col items-center justify-center px-4 text-center">
+    <section className="container mx-auto flex h-[calc(100vh-10rem)] md:h-[calc(100vh-20rem)] max-w-5xl flex-col items-center justify-center px-4 text-center">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-gray-50 sm:text-6xl">
+        <h1 className="text-5xl font-bold tracking-tight text-gray-900 dark:text-gray-50 ">
           The Modern Database Studio.
           <br />
-          <span className="bg-gradient-to-r from-blue-500 to-teal-400 bg-clip-text text-transparent">
+          <span className=" text-4xl bg-gradient-to-r from-blue-500 to-teal-400 bg-clip-text text-transparent">
             Simple, Secure, and Open-Source.
           </span>
         </h1>
@@ -38,14 +38,20 @@ export function HeroSection() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.4 }}
-        className="mt-10 flex items-center justify-center gap-x-6"
+        className="mt-10 flex items-center justify-center gap-x-6 "
       >
-        <Button asChild size="lg">
+        <Button asChild size="lg" className="shadow-xl shadow-black/30">
           <Link href="/studio">
             Launch Studio <ArrowRight className="ml-2 h-5 w-5" />
           </Link>
         </Button>
-        <Button asChild variant="outline" size="lg">
+
+        <Button
+          asChild
+          variant="outline"
+          size="lg"
+          className="shadow-xl shadow-black/30"
+        >
           <a
             href="https://github.com/bonheur15/master-database-studio"
             target="_blank"
