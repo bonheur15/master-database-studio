@@ -139,7 +139,7 @@ export async function updateRow(
       return { success: true, message: "Row updated successfully." };
     } else if (connection.type === "postgresql") {
       const pk = {
-        primaryKeyColumn: primaryKeyValue,
+        [primaryKeyColumn]: primaryKeyValue,
       };
       await updateData(connection, tableName, pk, rowData);
       return { success: true, message: "Row updated successfully." };
@@ -180,7 +180,7 @@ export async function deleteRow(
       return { success: true, message: "Row deleted successfully." };
     } else if (connection.type === "postgresql") {
       const pk = {
-        primaryKeyColumn: primaryKeyValue,
+        [primaryKeyColumn]: primaryKeyValue,
       };
       await deleteData(connection, tableName, pk);
       return { success: true, message: "Row deleted successfully." };
