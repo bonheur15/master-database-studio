@@ -3,7 +3,7 @@ export interface Connection {
   name: string;
   type: "postgresql" | "mysql" | "sqlite" | "mongodb";
   host: string;
-  protocol?: "mongodb" | "mongodb+srv"; // Corrected from 'protocal'
+  protocol?: string; // Corrected from 'protocal'
   search?: string;
   port?: number;
   user: string;

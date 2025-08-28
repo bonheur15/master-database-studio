@@ -195,3 +195,12 @@ export async function deleteData(
 
   return { success: true };
 }
+
+export async function createTable(connection: Connection, tableName: string) {
+  console.log("inside", connection);
+  const client = await pgConnector(connection);
+  const query = `CREATE TABLE ${tableName} ();`;
+
+  await client.query(query);
+  return { success: true };
+}

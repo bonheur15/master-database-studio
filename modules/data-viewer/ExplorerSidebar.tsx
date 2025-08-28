@@ -9,7 +9,6 @@ import {
   Accordion,
   AccordionContent,
   AccordionItem,
-  AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 
@@ -24,10 +23,15 @@ import Link from "next/link";
 import { getPgTableNames } from "@/app/actions/postgres";
 import { getCollections } from "@/app/actions/mongo";
 
+import SchemaOptions from "./SchemaOptions";
+import { Connection } from "@/types/connection";
+
 export function ExplorerSidebar() {
   const searchParams = useSearchParams();
   const connectionId = searchParams.get("connectionId");
   const tableName = searchParams.get("table");
+  const [connected, setConnected] = useState<Connection>();
+  console.log("to add table", connected);
 
   const [activeTable, setActiveTable] = useState(tableName || "");
   useEffect(() => {
@@ -37,6 +41,17 @@ export function ExplorerSidebar() {
   }, [tableName]);
   const [tables, setTables] = useState<{ name: string; count: number }[]>([]);
   const [loadingTables, setLoadingTables] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredTables, setFilteredTables] = useState<
+    { name: string; count: number }[]
+  >([]);
+
+  useEffect(() => {
+    const filteredTables = tables.filter((table) =>
+      table.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredTables(filteredTables);
+  }, [searchTerm, tables]);
 
   useEffect(() => {
     const fetchTables = async () => {
@@ -48,6 +63,7 @@ export function ExplorerSidebar() {
         );
 
         if (currentConnection) {
+          setConnected(currentConnection);
           let result: {
             success: boolean;
             tables?: { name: string; count: number }[];
@@ -109,9 +125,10 @@ export function ExplorerSidebar() {
         className="w-full h-[100%] "
       >
         <AccordionItem value="item-1" className="border-b-0 h-[100%]">
-          <AccordionTrigger className="px-3 py-2 text-xs font-semibold tracking-wider uppercase text-muted-foreground hover:no-underline">
-            <div className="flex-1 text-left">Tables</div>
-          </AccordionTrigger>
+          <div className="px-3 py-2 text-xs font-semibold flex justify-between tracking-wider uppercase text-muted-foreground hover:no-underline">
+            <div className="flex-1 text-left">Tables</div>{" "}
+            {connected ? <SchemaOptions connection={connected} /> : null}
+          </div>
           <AccordionContent className="pt-1 h-[100%]">
             <div className="flex flex-col gap-2 px-1 h-[100%]">
               {/* Search Bar */}
@@ -121,6 +138,7 @@ export function ExplorerSidebar() {
                   type="search"
                   placeholder="Search tables..."
                   className="w-full rounded-lg bg-background pl-8"
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
 
@@ -130,14 +148,14 @@ export function ExplorerSidebar() {
                   <p className="text-sm text-muted-foreground px-3 py-2">
                     Loading tables...
                   </p>
-                ) : tables.length === 0 ? (
+                ) : filteredTables.length === 0 ? (
                   <p className="text-sm text-muted-foreground px-3 py-2">
                     {connectionId
                       ? "No tables found"
                       : "Select a connection to view tables."}
                   </p>
                 ) : (
-                  tables.map((table) => (
+                  filteredTables.map((table) => (
                     <Link
                       key={table.name}
                       href={`/studio?connectionId=${connectionId}&tableName=${table.name}`}
