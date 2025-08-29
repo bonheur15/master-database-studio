@@ -31,12 +31,12 @@ export const AddRowDialog = ({
   tableName: string;
   onSuccess: () => void;
 }) => {
-  const [newRowData, setNewRowData] = useState<Record<string, any>>({});
+  const [newRowData, setNewRowData] = useState<Record<string, unknown>>({});
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      const initialData: Record<string, any> = {};
+      const initialData: Record<string, unknown> = {};
       schema.columns.forEach((col) => {
         if (col.defaultValue !== null && col.defaultValue !== undefined) {
           initialData[col.columnName] = col.defaultValue;
@@ -66,7 +66,7 @@ export const AddRowDialog = ({
     }
   }, [isOpen, schema]);
 
-  const handleFieldChange = (columnName: string, value: any) => {
+  const handleFieldChange = (columnName: string, value: unknown) => {
     setNewRowData((prev) => ({ ...prev, [columnName]: value }));
   };
 
@@ -112,7 +112,12 @@ export const AddRowDialog = ({
               <div className="col-span-3">
                 <Input
                   id={col.columnName}
-                  value={newRowData[col.columnName] ?? ""}
+                  value={
+                    newRowData[col.columnName] !== null &&
+                    newRowData[col.columnName] !== undefined
+                      ? String(newRowData[col.columnName])
+                      : ""
+                  }
                   onChange={(e) =>
                     handleFieldChange(col.columnName, e.target.value)
                   }
