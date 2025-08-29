@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
+
 import {
   Select,
   SelectContent,
@@ -22,77 +22,32 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ColumnOptions, Connection, Dialect } from "@/types/connection";
+import { MYSQL_TYPES, POSTGRES_TYPES } from "@/lib/constants";
+import { buildSQLFragment } from "@/lib/helpers/helpers";
+import { addPostgresColumn } from "@/app/actions/postgres";
+import { Plus } from "lucide-react";
 
-type ColumnOptions = {
-  name: string;
-  type: string;
-  length?: number;
-  precision?: number;
-  scale?: number;
-  arrayDimension?: number;
-  isNullable?: boolean;
-  isPrimaryKey?: boolean;
-  isUnique?: boolean;
-  default?: string;
-  check?: string;
-  comment?: string;
-};
-
-const POSTGRES_TYPES = [
-  "SMALLINT",
-  "INT",
-  "BIGINT",
-  "DECIMAL",
-  "NUMERIC",
-  "REAL",
-  "DOUBLE PRECISION",
-  "SERIAL",
-  "BIGSERIAL",
-  "MONEY",
-  "CHAR",
-  "VARCHAR",
-  "TEXT",
-  "BYTEA",
-  "BOOLEAN",
-  "DATE",
-  "TIME",
-  "TIMESTAMP",
-  "TIMESTAMPTZ",
-  "INTERVAL",
-  "UUID",
-  "JSON",
-  "JSONB",
-  "XML",
-  "INET",
-  "CIDR",
-  "MACADDR",
-  "POINT",
-  "LINE",
-  "LSEG",
-  "BOX",
-  "PATH",
-  "POLYGON",
-  "CIRCLE",
-];
-
-export default function AddColumnDialogs({
+export default function AddColumnDialog({
   tableName,
-  onSubmit,
+  connection,
+  dialect,
 }: {
   tableName: string;
-  onSubmit: (sql: string) => void;
+  dialect: Dialect;
+  connection: Connection;
 }) {
   const [open, setOpen] = useState(false);
   const [columns, setColumns] = useState<ColumnOptions[]>([
     {
       name: "",
-      type: "TEXT",
-      isNullable: true,
+      type: dialect === "mysql" ? "text" : "TEXT",
+      isNullable: false,
       isPrimaryKey: false,
       isUnique: false,
+      autoincrement: false,
       default: "",
       check: "",
-      comment: "",
     },
   ]);
   const [step, setStep] = useState<"form" | "review">("form");
@@ -115,7 +70,7 @@ export default function AddColumnDialogs({
       ...prev,
       {
         name: "",
-        type: "TEXT",
+        type: dialect === "mysql" ? "text" : "TEXT",
         isNullable: true,
         isPrimaryKey: false,
         isUnique: false,
@@ -130,37 +85,21 @@ export default function AddColumnDialogs({
     setColumns((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const buildSQLFragment = (col: ColumnOptions) => {
-    let typeStr = col.type;
-    if (["VARCHAR", "CHAR"].includes(col.type) && col.length)
-      typeStr += `(${col.length})`;
-    if (["NUMERIC", "DECIMAL"].includes(col.type)) {
-      if (col.precision)
-        typeStr += `(${col.precision}${col.scale ? `, ${col.scale}` : ""})`;
-    }
-    if (col.arrayDimension) typeStr += "[]".repeat(col.arrayDimension);
-    const constraints: string[] = [];
-    if (col.isPrimaryKey) constraints.push("PRIMARY KEY");
-    if (col.isUnique) constraints.push("UNIQUE");
-    if (col.isNullable === false) constraints.push("NOT NULL");
-    if (col.default) constraints.push(`DEFAULT ${col.default}`);
-    if (col.check) constraints.push(`CHECK (${col.check})`);
-    return `"${col.name}" ${typeStr} ${constraints.join(" ")}`.trim();
-  };
-
   const handleReview = () => {
     if (columns.some((c) => !c.name || !c.type))
       return alert("All columns must have a name and type");
     const sql = columns
-      .map((c) => `ALTER TABLE ${tableName} ADD COLUMN ${buildSQLFragment(c)};`)
+      .map(
+        (c) =>
+          `ALTER TABLE ${tableName} ADD COLUMN ${buildSQLFragment(c, dialect)};`
+      )
       .join("\n");
     setSqlPreview(sql);
     setStep("review");
   };
 
   const handleSubmit = () => {
-    if (!sqlPreview) return alert("No SQL to submit");
-    onSubmit(sqlPreview);
+    addPostgresColumn(connection, columns, tableName);
     setStep("form");
     setOpen(false);
     setColumns([
@@ -172,7 +111,6 @@ export default function AddColumnDialogs({
         isUnique: false,
         default: "",
         check: "",
-        comment: "",
       },
     ]);
     setSqlPreview("");
@@ -181,7 +119,10 @@ export default function AddColumnDialogs({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>Add Columns</Button>
+        <Button variant="outline">
+          <Plus />
+          Add Columns
+        </Button>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-3xl w-full max-h-[calc(100vh-10rem)] overflow-scroll space-y-4">
@@ -196,7 +137,9 @@ export default function AddColumnDialogs({
 
             <div className="space-y-4">
               {columns.map((col, idx) => {
-                const showLength = ["VARCHAR", "CHAR"].includes(col.type);
+                const showLength = ["VARCHAR", "CHAR", "varchar"].includes(
+                  col.type
+                );
                 const showPrecision = ["NUMERIC", "DECIMAL"].includes(col.type);
                 const showArray = [
                   "INT",
@@ -209,12 +152,13 @@ export default function AddColumnDialogs({
                   "TEXT",
                   "CHAR",
                   "VARCHAR",
+                  "varchar",
                 ].includes(col.type);
 
                 return (
-                  <div key={idx} className="border p-4 rounded space-y-2">
+                  <div key={idx} className="border p-4 rounded space-y-8">
                     <div className="flex justify-between items-center">
-                      <Label>Column #{idx + 1}</Label>
+                      <Label>New column</Label>
                       {columns.length > 1 && (
                         <Button
                           variant="destructive"
@@ -241,12 +185,15 @@ export default function AddColumnDialogs({
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Type" />
+                          <SelectValue placeholder="Data types" />
                         </SelectTrigger>
-                        <SelectContent className="max-h-60 overflow-y-auto">
-                          {POSTGRES_TYPES.map((type) => (
-                            <SelectItem key={type} value={type}>
-                              {type}
+                        <SelectContent className="h-[200px]">
+                          {(dialect === "postgresql"
+                            ? POSTGRES_TYPES
+                            : MYSQL_TYPES
+                          ).map((t) => (
+                            <SelectItem key={t} value={t}>
+                              {t}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -294,10 +241,10 @@ export default function AddColumnDialogs({
                           />
                         </>
                       )}
-                      {showArray && (
+                      {showArray && dialect === "postgresql" && (
                         <Input
                           type="number"
-                          placeholder="Array dim"
+                          placeholder="Array Dimension"
                           value={col.arrayDimension || ""}
                           onChange={(e) =>
                             handleChange(
@@ -314,24 +261,32 @@ export default function AddColumnDialogs({
                       <Checkbox
                         checked={col.isNullable}
                         onCheckedChange={(value) =>
-                          handleChange(idx, "isNullable", value)
+                          handleChange(idx, "isNullable", value === true)
                         }
                       />
                       <Label>Nullable</Label>
                       <Checkbox
                         checked={col.isPrimaryKey}
                         onCheckedChange={(value) =>
-                          handleChange(idx, "isPrimaryKey", value)
+                          handleChange(idx, "isPrimaryKey", value === true)
                         }
                       />
                       <Label>Primary Key</Label>
                       <Checkbox
                         checked={col.isUnique}
                         onCheckedChange={(value) =>
-                          handleChange(idx, "isUnique", value)
+                          handleChange(idx, "isUnique", value === true)
                         }
                       />
                       <Label>Unique</Label>
+
+                      <Checkbox
+                        checked={col.autoincrement}
+                        onCheckedChange={(value) =>
+                          handleChange(idx, "autoincrement", value === true)
+                        }
+                      />
+                      <Label>auto increment</Label>
                     </div>
 
                     <Input
@@ -346,13 +301,6 @@ export default function AddColumnDialogs({
                       value={col.check}
                       onChange={(e) =>
                         handleChange(idx, "check", e.target.value)
-                      }
-                    />
-                    <Textarea
-                      placeholder="Comment (optional)"
-                      value={col.comment}
-                      onChange={(e) =>
-                        handleChange(idx, "comment", e.target.value)
                       }
                     />
                   </div>
@@ -380,7 +328,8 @@ export default function AddColumnDialogs({
                 .map(
                   (c) =>
                     `ALTER TABLE ${tableName} ADD COLUMN ${buildSQLFragment(
-                      c
+                      c,
+                      dialect
                     )};`
                 )
                 .join("\n")}

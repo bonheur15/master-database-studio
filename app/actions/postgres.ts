@@ -1,7 +1,8 @@
 "use server";
 
 import { pgConnector } from "@/lib/adapters/postgres";
-import { Connection } from "@/types/connection";
+import { buildSQL } from "@/lib/helpers/helpers";
+import { ColumnOptions, Connection } from "@/types/connection";
 
 export async function getPgTableNames(connection: Connection): Promise<{
   success: boolean;
@@ -133,9 +134,9 @@ export async function insertDatas(
 
   const placeHolders = columns.map((_, i) => `$${i + 1}`).join(", ");
 
-  const query = `INSERT INTO ${tableName} (${columns.join(
-    ", "
-  )}) VALUES(${placeHolders}) RETURNING *`;
+  const query = `INSERT INTO ${tableName} (${columns
+    .map((col) => `"${col}"`)
+    .join(", ")}) VALUES(${placeHolders}) RETURNING *`;
 
   const response = await client.query(query, values);
 
@@ -153,24 +154,29 @@ export async function updateData(
   const client = await pgConnector(connection);
 
   const columns = Object.keys(data);
-
   const values = Object.values(data);
 
+  // Properly quote identifiers
+  const quoteIdent = (ident: string) => `"${ident.replace(/"/g, '""')}"`;
+
   const placeHolders = columns
-    .map((column, i) => `${column} = $${i + 1}`)
+    .map((column, i) => `${quoteIdent(column)} = $${i + 1}`)
     .join(", ");
 
-  const pkColumn = Object.keys(pk);
+  const pkColumn = Object.keys(pk)[0];
   const pkValue = Object.values(pk)[0];
   const pkParameterized = values.length + 1;
 
-  const query = `UPDATE ${tableName} SET ${placeHolders} WHERE ${pkColumn} = $${pkParameterized} RETURNING *`;
+  const query = `
+    UPDATE ${quoteIdent(tableName)}
+    SET ${placeHolders}
+    WHERE ${quoteIdent(pkColumn)} = $${pkParameterized}
+    RETURNING *;
+  `;
 
   const response = await client.query(query, [...values, pkValue]);
 
-  const dataReturned = response.rows;
-
-  return dataReturned;
+  return response.rows;
 }
 
 export async function deleteData(
@@ -202,5 +208,18 @@ export async function createTable(connection: Connection, tableName: string) {
   const query = `CREATE TABLE ${tableName} ();`;
 
   await client.query(query);
+  return { success: true };
+}
+
+export async function addPostgresColumn(
+  connection: Connection,
+  column: ColumnOptions[],
+  tableName: string
+) {
+  const client = await pgConnector(connection);
+
+  const query = buildSQL(column, "postgresql", tableName);
+  console.log(query);
+  client.query(query);
   return { success: true };
 }

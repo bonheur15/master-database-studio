@@ -8,7 +8,6 @@ import { Plus } from "lucide-react";
 import React from "react";
 import { CreateTableDialog } from "./CreateTableDialog";
 import { Connection } from "@/types/connection";
-import AddColumnDialogs from "./AddColumn";
 
 function SchemaOptions({ connection }: { connection: Connection }) {
   return (
@@ -22,7 +21,7 @@ function SchemaOptions({ connection }: { connection: Connection }) {
         <div className="flex flex-col gap-4 py-4 px-1  w-60">
           <div>Schema</div>
           <CreateTableDialog connection={connection} />
-          <AddColumnDialogs tableName="users" />
+
           <div>Enum</div>
           <div>Role</div>
           <div>Policy</div>

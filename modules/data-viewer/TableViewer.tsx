@@ -94,6 +94,7 @@ import {
 } from "@/app/actions/data";
 import dynamic from "next/dynamic";
 import { AddRowDialog } from "./AddRowDialog";
+import AddColumnDialog from "./AddColumn";
 
 const JsonViewer = dynamic(() => import("./JsonViewer"), { ssr: false });
 
@@ -448,6 +449,15 @@ export function TableViewer() {
             >
               <PlusCircle className="h-4 w-4" /> Add Row
             </Button>
+            {connection ? (
+              <AddColumnDialog
+                connection={connection}
+                dialect={connection.type}
+                tableName={tableName}
+              />
+            ) : (
+              ""
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

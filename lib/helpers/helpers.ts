@@ -1,4 +1,4 @@
-import { Connection } from "@/types/connection";
+import { ColumnOptions, Connection, Dialect } from "@/types/connection";
 
 export const parseConnectionString = (
   str: string
@@ -67,4 +67,119 @@ export function sanitizeIdentifier(identifier: string) {
     throw new Error("Invalid identifier: " + identifier);
   }
   return identifier;
+}
+
+export function buildSQLFragment(col: ColumnOptions, dialect: Dialect) {
+  if (dialect === "postgresql") {
+    let typeStr = col.type;
+    if (["VARCHAR", "CHAR"].includes(col.type) && col.length)
+      typeStr += `(${col.length})`;
+    if (["NUMERIC", "DECIMAL"].includes(col.type)) {
+      if (col.precision)
+        typeStr += `(${col.precision}${col.scale ? `, ${col.scale}` : ""})`;
+    }
+    if (col.arrayDimension) typeStr += "[]".repeat(col.arrayDimension);
+    const constraints: string[] = [];
+    if (col.isPrimaryKey) constraints.push("PRIMARY KEY");
+    if (col.isUnique) constraints.push("UNIQUE");
+    if (col.isNullable === false) constraints.push("NOT NULL");
+    if (col.default) constraints.push(`DEFAULT ${col.default}`);
+    if (col.check) constraints.push(`CHECK (${col.check})`);
+    return `"${col.name}" ${typeStr} ${constraints.join(" ")}`.trim();
+  }
+
+  if (dialect === "mysql") {
+    let typeStr = col.type;
+
+    if (["VARCHAR", "CHAR"].includes(col.type) && col.length) {
+      typeStr += `(${col.length})`;
+    }
+    if (["DECIMAL", "NUMERIC", "FLOAT", "DOUBLE"].includes(col.type)) {
+      if (col.precision) {
+        typeStr += `(${col.precision}${col.scale ? `, ${col.scale}` : ""})`;
+      }
+    }
+
+    const constraints: string[] = [];
+    if (col.isPrimaryKey) constraints.push("PRIMARY KEY");
+    if (col.isUnique) constraints.push("UNIQUE");
+    if (col.isNullable === false) constraints.push("NOT NULL");
+    if (col.default) constraints.push(`DEFAULT ${col.default}`);
+    if (col.autoincrement && col.isPrimaryKey)
+      constraints.push("AUTO_INCREMENT");
+    if (col.check) constraints.push(`CHECK (${col.check})`);
+
+    return `\`${col.name}\` ${typeStr} ${constraints.join(" ")}`.trim();
+  }
+
+  return "";
+}
+export function buildSQL(
+  cols: ColumnOptions[],
+  dialect: Dialect,
+  tableName: string
+) {
+  if (dialect === "postgresql") {
+    return (
+      cols
+        .map((col: ColumnOptions) => {
+          let typeStr = col.type;
+          if (["VARCHAR", "CHAR"].includes(col.type) && col.length)
+            typeStr += `(${col.length})`;
+          if (["NUMERIC", "DECIMAL"].includes(col.type)) {
+            if (col.precision)
+              typeStr += `(${col.precision}${
+                col.scale ? `, ${col.scale}` : ""
+              })`;
+          }
+          if (col.arrayDimension) typeStr += "[]".repeat(col.arrayDimension);
+          const constraints: string[] = [];
+          if (col.isPrimaryKey) constraints.push("PRIMARY KEY");
+          if (col.isUnique) constraints.push("UNIQUE");
+          if (col.isNullable === false) constraints.push("NOT NULL");
+          if (col.default) constraints.push(`DEFAULT ${col.default}`);
+          if (col.check) constraints.push(`CHECK (${col.check})`);
+          return `ALTER TABLE ${tableName} ADD COLUMN "${
+            col.name
+          }" ${typeStr} ${constraints.join(" ")}`.trim();
+        })
+        .join(";\n") + ";"
+    );
+  }
+
+  if (dialect === "mysql") {
+    return (
+      cols
+        .map((col: ColumnOptions) => {
+          let typeStr = col.type;
+
+          if (["VARCHAR", "CHAR"].includes(col.type) && col.length) {
+            typeStr += `(${col.length})`;
+          }
+          if (["DECIMAL", "NUMERIC", "FLOAT", "DOUBLE"].includes(col.type)) {
+            if (col.precision) {
+              typeStr += `(${col.precision}${
+                col.scale ? `, ${col.scale}` : ""
+              })`;
+            }
+          }
+
+          const constraints: string[] = [];
+          if (col.isPrimaryKey) constraints.push("PRIMARY KEY");
+          if (col.isUnique) constraints.push("UNIQUE");
+          if (col.isNullable === false) constraints.push("NOT NULL");
+          if (col.default) constraints.push(`DEFAULT ${col.default}`);
+          if (col.autoincrement && col.isPrimaryKey)
+            constraints.push("AUTO_INCREMENT");
+          if (col.check) constraints.push(`CHECK (${col.check})`);
+
+          return `ALTER TABLE ${tableName} ADD COLUMN \`${
+            col.name
+          }\` ${typeStr} ${constraints.join(" ")}`.trim();
+        })
+        .join(";\n") + ";"
+    );
+  }
+
+  return "";
 }

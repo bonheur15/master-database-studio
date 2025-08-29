@@ -1,7 +1,7 @@
 export interface Connection {
   id: string; // UUID
   name: string;
-  type: "postgresql" | "mysql" | "sqlite" | "mongodb";
+  type: "postgresql" | "mysql" | "mongodb";
   host: string;
   protocol?: string; // Corrected from 'protocal'
   search?: string;
@@ -62,3 +62,20 @@ const initialDetails = {
   password: "",
   database: "",
 };
+
+export type ColumnOptions = {
+  name: string;
+  type: string;
+  length?: number;
+  precision?: number;
+  scale?: number;
+  arrayDimension?: number;
+  isNullable?: boolean;
+  isPrimaryKey?: boolean;
+  isUnique?: boolean;
+  autoincrement?: boolean;
+  default?: string;
+  check?: string;
+};
+
+type Dialect = "postgresql" | "mysql" | "mongodb";
