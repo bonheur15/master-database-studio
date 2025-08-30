@@ -95,6 +95,7 @@ import {
 import dynamic from "next/dynamic";
 import { AddRowDialog } from "./AddRowDialog";
 import AddColumnDialog from "./AddColumn";
+import { getSchemas } from "@/app/actions/postgres";
 
 const JsonViewer = dynamic(() => import("./JsonViewer"), { ssr: false });
 
@@ -108,7 +109,9 @@ export function TableViewer() {
   const [tableSchema, setTableSchema] = useState<TableSchema | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
+  if (connection) {
+    getSchemas(connection);
+  }
   // UI State
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
@@ -147,8 +150,6 @@ export function TableViewer() {
       if (!currentConnection) throw new Error("Connection not found.");
       setConnection(currentConnection);
 
-      console.log("consjccdcbdh", currentConnection);
-
       const result = await getTableData(currentConnection, tableName);
       if (result.success && result.data) {
         setTableData(result.data);
@@ -168,6 +169,10 @@ export function TableViewer() {
       setSelectedRows([]);
     }
   }, [connectionId, tableName]);
+
+  if (connection) {
+    console.log("hello from table", connection);
+  }
 
   useEffect(() => {
     fetchTableData();

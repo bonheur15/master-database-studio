@@ -4,6 +4,16 @@ import { pgConnector } from "@/lib/adapters/postgres";
 import { buildSQL } from "@/lib/helpers/helpers";
 import { ColumnOptions, Connection } from "@/types/connection";
 
+export async function getSchemas(connection: Connection) {
+  const client = await pgConnector(connection);
+
+  const query = `SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('pg_catalog', 'information_schema')
+  AND schema_name NOT LIKE 'pg_toast%'
+  AND schema_name NOT LIKE 'pg_temp%';`;
+  const schemas = await client.query(query);
+
+  console.log("schemas post:", schemas.rows);
+}
 export async function getPgTableNames(connection: Connection): Promise<{
   success: boolean;
   tables?: { name: string; count: number }[];
