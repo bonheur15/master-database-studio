@@ -1,6 +1,14 @@
+"use server";
+
 import { mysqlConnector } from "@/lib/adapters/mysql";
-import { sanitizeIdentifier } from "@/lib/helpers/helpers";
-import { Connection, TableColumn, TableSchema } from "@/types/connection";
+import { pgConnector } from "@/lib/adapters/postgres";
+import { buildSQL, sanitizeIdentifier } from "@/lib/helpers/helpers";
+import {
+  ColumnOptions,
+  Connection,
+  TableColumn,
+  TableSchema,
+} from "@/types/connection";
 
 export async function getMysqlData(connection: Connection, tableName: string) {
   const mysqlConnection = await mysqlConnector(connection);
@@ -95,5 +103,18 @@ export async function updateMysqlRow(
   await mysqlConnection.execute(query, values);
   await mysqlConnection.end();
 
+  return { success: true };
+}
+
+export async function addMysqlColumn(
+  connection: Connection,
+  column: ColumnOptions[],
+  tableName: string
+) {
+  const client = await pgConnector(connection);
+
+  const query = buildSQL(column, "mysql", tableName);
+  console.log(query);
+  client.query(query);
   return { success: true };
 }

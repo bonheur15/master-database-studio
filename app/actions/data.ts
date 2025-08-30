@@ -52,6 +52,7 @@ export async function getTableData(
       }));
 
       const schema: TableSchema = { tableName, columns };
+      console.log("shema:", schema);
 
       // Get data (defaulting to first 20 rows, page 1)
       const data = await getTableDatas({

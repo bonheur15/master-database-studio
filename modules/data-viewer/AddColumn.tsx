@@ -27,6 +27,7 @@ import { MYSQL_TYPES, POSTGRES_TYPES } from "@/lib/constants";
 import { buildSQLFragment } from "@/lib/helpers/helpers";
 import { addPostgresColumn } from "@/app/actions/postgres";
 import { Plus } from "lucide-react";
+import { addMysqlColumn } from "@/app/actions/mysql";
 
 export default function AddColumnDialog({
   tableName,
@@ -51,7 +52,6 @@ export default function AddColumnDialog({
     },
   ]);
   const [step, setStep] = useState<"form" | "review">("form");
-  const [sqlPreview, setSqlPreview] = useState("");
 
   const handleChange = <K extends keyof ColumnOptions>(
     index: number,
@@ -88,18 +88,17 @@ export default function AddColumnDialog({
   const handleReview = () => {
     if (columns.some((c) => !c.name || !c.type))
       return alert("All columns must have a name and type");
-    const sql = columns
-      .map(
-        (c) =>
-          `ALTER TABLE ${tableName} ADD COLUMN ${buildSQLFragment(c, dialect)};`
-      )
-      .join("\n");
-    setSqlPreview(sql);
+
     setStep("review");
   };
 
   const handleSubmit = () => {
-    addPostgresColumn(connection, columns, tableName);
+    if (dialect === "postgresql") {
+      addPostgresColumn(connection, columns, tableName);
+    } else if (dialect === "mysql") {
+      addMysqlColumn(connection, columns, tableName);
+    }
+
     setStep("form");
     setOpen(false);
     setColumns([
@@ -113,7 +112,6 @@ export default function AddColumnDialog({
         check: "",
       },
     ]);
-    setSqlPreview("");
   };
 
   return (
