@@ -10,9 +10,10 @@ export async function getSchemas(connection: Connection) {
   const query = `SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('pg_catalog', 'information_schema')
   AND schema_name NOT LIKE 'pg_toast%'
   AND schema_name NOT LIKE 'pg_temp%';`;
-  const schemas = await client.query(query);
-
-  console.log("schemas post:", schemas.rows);
+  const data = await client.query(query);
+  await client.end();
+  const schemas = data.rows.map((row) => row.schema_name as string);
+  return schemas;
 }
 export async function getPgTableNames(connection: Connection): Promise<{
   success: boolean;
@@ -103,7 +104,7 @@ export async function getTableColumns(
     cols.table_name = '${tableName}'
     AND cols.table_schema NOT IN ('pg_catalog', 'information_schema');
 `);
-
+  await client.end();
   const columns = response.rows;
 
   return columns;
@@ -127,6 +128,7 @@ export async function getTableDatas({
     `SELECT * FROM ${tableName} LIMIT ${limit} OFFSET ${offset} `
   );
 
+  await client.end();
   const data = response.rows;
 
   return data;
@@ -149,6 +151,7 @@ export async function insertDatas(
     .join(", ")}) VALUES(${placeHolders}) RETURNING *`;
 
   const response = await client.query(query, values);
+  await client.end();
 
   const dataReturned = response.rows;
 
@@ -185,6 +188,7 @@ export async function updateData(
   `;
 
   const response = await client.query(query, [...values, pkValue]);
+  await client.end();
 
   return response.rows;
 }
@@ -207,7 +211,7 @@ export async function deleteData(
 
   await client.query(query, pkValue);
 
-  client.end();
+  await client.end();
 
   return { success: true };
 }
@@ -218,6 +222,7 @@ export async function createTable(connection: Connection, tableName: string) {
   const query = `CREATE TABLE ${tableName} ();`;
 
   await client.query(query);
+  await client.end();
   return { success: true };
 }
 
@@ -231,5 +236,6 @@ export async function addPostgresColumn(
   const query = buildSQL(column, "postgresql", tableName);
   console.log(query);
   client.query(query);
+  await client.end();
   return { success: true };
 }

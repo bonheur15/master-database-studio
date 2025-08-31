@@ -20,18 +20,26 @@ import { ConnectionList } from "../connection/ConnectionList";
 import { getMysqlTables } from "@/app/actions/tables";
 import { loadConnections } from "@/lib/connection-storage";
 import Link from "next/link";
-import { getPgTableNames } from "@/app/actions/postgres";
+import { getPgTableNames, getSchemas } from "@/app/actions/postgres";
 import { getCollections } from "@/app/actions/mongo";
 
 import SchemaOptions from "./SchemaOptions";
 import { Connection } from "@/types/connection";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
+import { SelectTrigger } from "@radix-ui/react-select";
 
 export function ExplorerSidebar() {
   const searchParams = useSearchParams();
   const connectionId = searchParams.get("connectionId");
   const tableName = searchParams.get("table");
   const [connected, setConnected] = useState<Connection>();
-  console.log("to add table", connected);
+  const [schemas, setSchema] = useState<string[]>();
 
   const [activeTable, setActiveTable] = useState(tableName || "");
   useEffect(() => {
@@ -52,6 +60,16 @@ export function ExplorerSidebar() {
     );
     setFilteredTables(filteredTables);
   }, [searchTerm, tables]);
+
+  useEffect(() => {
+    const fetchSchemas = async () => {
+      if (connected) {
+        const result = await getSchemas(connected);
+        setSchema(result);
+      }
+    };
+    fetchSchemas();
+  }, [connected]);
 
   useEffect(() => {
     const fetchTables = async () => {
@@ -126,7 +144,26 @@ export function ExplorerSidebar() {
       >
         <AccordionItem value="item-1" className="border-b-0 h-[100%]">
           <div className="px-3 py-2 text-xs font-semibold flex justify-between tracking-wider uppercase text-muted-foreground hover:no-underline">
-            <div className="flex-1 text-left">Tables</div>{" "}
+            {connected?.type === "postgresql" ? (
+              <Select>
+                <SelectTrigger className="w-[180px] focus:outline-none">
+                  <div className="w-full border border-gray-400/50 p-2 rounded-md">
+                    <SelectValue placeholder="Select Schema " />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {schemas?.map((schema, i) => (
+                      <SelectItem value={schema} key={i}>
+                        {schema}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            ) : (
+              <div>tables</div>
+            )}
             {connected ? <SchemaOptions connection={connected} /> : null}
           </div>
           <AccordionContent className="pt-1 h-[100%]">

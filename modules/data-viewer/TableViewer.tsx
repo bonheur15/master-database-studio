@@ -109,9 +109,7 @@ export function TableViewer() {
   const [tableSchema, setTableSchema] = useState<TableSchema | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  if (connection) {
-    getSchemas(connection);
-  }
+
   // UI State
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
