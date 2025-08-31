@@ -15,10 +15,14 @@ export async function getSchemas(connection: Connection) {
   const schemas = data.rows.map((row) => row.schema_name as string);
   return schemas;
 }
-export async function getPgTableNames(connection: Connection): Promise<{
+export async function getPgTableNames(
+  connection: Connection,
+  schema?: string
+): Promise<{
   success: boolean;
   tables?: { name: string; count: number }[];
   message?: string;
+  schema?: string;
 }> {
   try {
     if (connection.type !== "postgresql") {
@@ -38,20 +42,30 @@ export async function getPgTableNames(connection: Connection): Promise<{
 
     const client = await pgConnector(connection);
 
-    // Get table names
-    const response = await client.query(`
-      SELECT table_name
-      FROM information_schema.tables
-      WHERE table_type = 'BASE TABLE'
-      AND table_schema NOT IN ('pg_catalog', 'information_schema');
-    `);
+    const query = schema
+      ? `
+        SELECT table_name
+        FROM information_schema.tables
+        WHERE table_type = 'BASE TABLE'
+          AND table_schema = $1
+      `
+      : `
+        SELECT table_name, table_schema
+        FROM information_schema.tables
+        WHERE table_type = 'BASE TABLE'
+          AND table_schema NOT IN ('pg_catalog', 'information_schema')
+      `;
+
+    const response = schema
+      ? await client.query(query, [schema])
+      : await client.query(query);
 
     const tableNames = response.rows.map((row) => row.table_name);
 
     const tablesWithCounts: { name: string; count: number }[] = [];
     for (const tableName of tableNames) {
       const countRes = await client.query(
-        `SELECT COUNT(*) FROM "${tableName}"`
+        `SELECT COUNT(*) FROM "${schema ? schema + '"."' : ""}${tableName}"`
       );
       const count = parseInt(countRes.rows[0].count, 10);
       tablesWithCounts.push({ name: tableName, count });
@@ -59,7 +73,7 @@ export async function getPgTableNames(connection: Connection): Promise<{
 
     await client.end();
 
-    return { success: true, tables: tablesWithCounts };
+    return { success: true, tables: tablesWithCounts, schema };
   } catch (error) {
     console.error("Error fetching PostgreSQL tables:", error);
     return {
