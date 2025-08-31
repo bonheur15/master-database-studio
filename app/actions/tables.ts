@@ -97,7 +97,7 @@ export async function getMongoTables(connection: Connection): Promise<{
     for await (const doc of colls) {
       const collectionName = doc.name;
       const collection = database.collection(collectionName);
-      const count = await collection.estimatedDocumentCount(); // or countDocuments() for more accuracy
+      const count = await collection.estimatedDocumentCount();
 
       collections.push({
         name: collectionName,

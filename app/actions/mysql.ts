@@ -105,16 +105,15 @@ export async function updateMysqlRow(
 
   return { success: true };
 }
-
 export async function addMysqlColumn(
   connection: Connection,
   column: ColumnOptions[],
   tableName: string
 ) {
-  const client = await pgConnector(connection);
+  const client = await mysqlConnector(connection);
 
   const query = buildSQL(column, "mysql", tableName);
-  console.log(query);
   client.query(query);
+  client.end();
   return { success: true };
 }

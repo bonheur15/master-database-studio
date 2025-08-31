@@ -40,6 +40,7 @@ export function ExplorerSidebar() {
   const tableName = searchParams.get("table");
   const [connected, setConnected] = useState<Connection>();
   const [schemas, setSchema] = useState<string[]>();
+  const [SelectedSchema, setSelectedSchema] = useState<string>();
 
   const [activeTable, setActiveTable] = useState(tableName || "");
   useEffect(() => {
@@ -60,7 +61,11 @@ export function ExplorerSidebar() {
     );
     setFilteredTables(filteredTables);
   }, [searchTerm, tables]);
-
+  useEffect(() => {
+    if (schemas && schemas.length > 0 && !SelectedSchema) {
+      setSelectedSchema(schemas[0]);
+    }
+  }, [schemas, SelectedSchema]);
   useEffect(() => {
     const fetchSchemas = async () => {
       if (connected) {
@@ -95,7 +100,7 @@ export function ExplorerSidebar() {
             result = await getCollections(currentConnection);
           }
           if (currentConnection.type === "postgresql") {
-            result = await getPgTableNames(currentConnection);
+            result = await getPgTableNames(currentConnection, SelectedSchema);
           }
           if (result.success && result.tables) {
             setTables(result.tables);
@@ -120,14 +125,14 @@ export function ExplorerSidebar() {
       }
     };
     fetchTables();
-  }, [connectionId, tableName]);
+  }, [connectionId, tableName, SelectedSchema]);
 
   return (
     <div className="flex h-full flex-col gap-4 px-2 py-4 w-[100%]">
       {/* --- Connections Section --- */}
       <div className="w-[100%]">
         <h3 className="mb-2 px-4 text-xs font-semibold tracking-wider uppercase text-muted-foreground">
-          Connections
+          Connections {SelectedSchema}
         </h3>
         <nav className="grid gap-1 w-[100%]">
           <ConnectionList currentConnectionId={connectionId ?? ""} />
@@ -145,10 +150,14 @@ export function ExplorerSidebar() {
         <AccordionItem value="item-1" className="border-b-0 h-[100%]">
           <div className="px-3 py-2 text-xs font-semibold flex justify-between tracking-wider uppercase text-muted-foreground hover:no-underline">
             {connected?.type === "postgresql" ? (
-              <Select>
+              <Select
+                onValueChange={(value: string) => {
+                  setSelectedSchema(value);
+                }}
+              >
                 <SelectTrigger className="w-[180px] focus:outline-none">
                   <div className="w-full border border-gray-400/50 p-2 rounded-md">
-                    <SelectValue placeholder="Select Schema " />
+                    <SelectValue placeholder={SelectedSchema} />
                   </div>
                 </SelectTrigger>
                 <SelectContent>
@@ -164,7 +173,9 @@ export function ExplorerSidebar() {
             ) : (
               <div>tables</div>
             )}
-            {connected ? <SchemaOptions connection={connected} /> : null}
+            {connected ? (
+              <SchemaOptions connection={connected} schema={SelectedSchema} />
+            ) : null}
           </div>
           <AccordionContent className="pt-1 h-[100%]">
             <div className="flex flex-col gap-2 px-1 h-[100%]">
@@ -195,7 +206,9 @@ export function ExplorerSidebar() {
                   filteredTables.map((table) => (
                     <Link
                       key={table.name}
-                      href={`/studio?connectionId=${connectionId}&tableName=${table.name}`}
+                      href={`/studio?connectionId=${connectionId}&tableName=${
+                        table.name
+                      }${SelectedSchema ? `&schema=${SelectedSchema}` : ""}`}
                       onClick={() => setActiveTable(table.name)}
                       className={cn(
                         "flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-muted/50 hover:text-foreground",

@@ -22,6 +22,7 @@ export const AddRowDialog = ({
   schema,
   connection,
   tableName,
+  Schema,
   onSuccess,
 }: {
   isOpen: boolean;
@@ -29,6 +30,7 @@ export const AddRowDialog = ({
   schema: TableSchema;
   connection: Connection;
   tableName: string;
+  Schema?: string;
   onSuccess: () => void;
 }) => {
   const [newRowData, setNewRowData] = useState<Record<string, unknown>>({});
@@ -43,7 +45,6 @@ export const AddRowDialog = ({
         } else if (col.isNullable) {
           initialData[col.columnName] = null;
         } else {
-          // Handle various data types with appropriate defaults
           switch (col.dataType?.toLowerCase()) {
             case "int":
             case "integer":
@@ -73,7 +74,7 @@ export const AddRowDialog = ({
   const handleSubmit = async () => {
     setIsSaving(true);
     try {
-      const result = await insertRow(connection, tableName, newRowData);
+      const result = await insertRow(connection, tableName, newRowData, Schema);
       if (result.success) {
         toast.success("Row Added", { description: result.message });
         onSuccess();
@@ -96,7 +97,7 @@ export const AddRowDialog = ({
         <DialogHeader>
           <DialogTitle>Add New Row to &quot;{tableName}&quot;</DialogTitle>
           <DialogDescription>
-            Fill in the details for the new row.
+            Fill in the details for the new row.{Schema}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-4">

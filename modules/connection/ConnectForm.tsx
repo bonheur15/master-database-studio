@@ -47,17 +47,6 @@ import { InputField } from "@/components/inputField";
 import type { Connection } from "@/types/connection";
 
 export function ConnectForm() {
-  // const initialDetails = {
-  //   name: "",
-  //   type: "mysql" as Connection["type"],
-  //   protocol: undefined as Connection["protocol"],
-  //   search: undefined as Connection["search"],
-  //   host: "localhost",
-  //   port: undefined as Connection["port"],
-  //   user: "",
-  //   password: "",
-  //   database: "",
-  // };
   const router = useRouter();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -192,7 +181,7 @@ export function ConnectForm() {
           onValueChange={(v) => {
             setTab(v as typeof tab);
             if (v === "auto") {
-              handleDetailsChange({ port: undefined }); // clear port when going to string mode
+              handleDetailsChange({ port: undefined });
             }
           }}
           className="w-full"

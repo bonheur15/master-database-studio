@@ -33,10 +33,12 @@ export default function AddColumnDialog({
   tableName,
   connection,
   dialect,
+  schema,
 }: {
   tableName: string;
   dialect: Dialect;
   connection: Connection;
+  schema?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [columns, setColumns] = useState<ColumnOptions[]>([
@@ -94,7 +96,7 @@ export default function AddColumnDialog({
 
   const handleSubmit = () => {
     if (dialect === "postgresql") {
-      addPostgresColumn(connection, columns, tableName);
+      addPostgresColumn(connection, columns, tableName, schema);
     } else if (dialect === "mysql") {
       addMysqlColumn(connection, columns, tableName);
     }

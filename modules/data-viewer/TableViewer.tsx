@@ -42,15 +42,6 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -82,20 +73,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Switch } from "@/components/ui/switch";
 
-import { Connection, TableSchema, TableColumn } from "@/types/connection";
+import { Connection, TableSchema } from "@/types/connection";
 import { loadConnections } from "@/lib/connection-storage";
-import {
-  getTableData,
-  insertRow,
-  updateRow,
-  deleteRow,
-} from "@/app/actions/data";
+import { getTableData, updateRow, deleteRow } from "@/app/actions/data";
 import dynamic from "next/dynamic";
 import { AddRowDialog } from "./AddRowDialog";
 import AddColumnDialog from "./AddColumn";
-import { getSchemas } from "@/app/actions/postgres";
 
 const JsonViewer = dynamic(() => import("./JsonViewer"), { ssr: false });
 
@@ -103,6 +87,7 @@ export function TableViewer() {
   const searchParams = useSearchParams();
   const connectionId = searchParams.get("connectionId");
   const tableName = searchParams.get("tableName");
+  const schema = searchParams.get("schema");
 
   const [connection, setConnection] = useState<Connection | null>(null);
   const [tableData, setTableData] = useState<Record<string, any>[]>([]);
@@ -110,7 +95,6 @@ export function TableViewer() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // UI State
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
@@ -122,7 +106,6 @@ export function TableViewer() {
     isBulk: boolean;
   }>({ open: false, rowIds: [], isBulk: false });
 
-  // Data processing state
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{
     key: string;
@@ -148,7 +131,11 @@ export function TableViewer() {
       if (!currentConnection) throw new Error("Connection not found.");
       setConnection(currentConnection);
 
-      const result = await getTableData(currentConnection, tableName);
+      const result = await getTableData(
+        currentConnection,
+        tableName,
+        schema ? schema : undefined
+      );
       if (result.success && result.data) {
         setTableData(result.data);
         if (result.schema) {
@@ -181,20 +168,6 @@ export function TableViewer() {
       tableSchema?.columns.find((col) => col.columnKey === "PRI")?.columnName,
     [tableSchema]
   );
-
-  const handleSelectAll = (checked: boolean) => {
-    if (!primaryKeyColumn) {
-      toast.info("Cannot select all rows", {
-        description: "Table has no primary key defined.",
-      });
-      return;
-    }
-    setSelectedRows(
-      checked
-        ? processedData.map((row) => row[primaryKeyColumn]?.toString())
-        : []
-    );
-  };
 
   const handleSelectRow = (id: string) => {
     setSelectedRows((prev) =>
@@ -258,7 +231,8 @@ export function TableViewer() {
         tableName,
         primaryKeyColumn,
         editingRowId,
-        editingRowData
+        editingRowData,
+        schema ? schema : undefined
       );
       if (result.success) {
         toast.success("Row Updated", { description: result.message });
@@ -289,7 +263,13 @@ export function TableViewer() {
 
     const { rowIds } = deleteAlert;
     const promises = rowIds.map((id) =>
-      deleteRow(connection, tableName, primaryKeyColumn, id)
+      deleteRow(
+        connection,
+        tableName,
+        primaryKeyColumn,
+        id,
+        schema ? schema : undefined
+      )
     );
     const results = await Promise.all(promises);
 
@@ -457,6 +437,7 @@ export function TableViewer() {
                 connection={connection}
                 dialect={connection.type}
                 tableName={tableName}
+                schema={schema ? schema : undefined}
               />
             ) : (
               ""
@@ -686,6 +667,7 @@ export function TableViewer() {
           connection={connection}
           tableName={tableName!}
           onSuccess={fetchTableData}
+          Schema={schema ? schema : undefined}
         />
       )}
 

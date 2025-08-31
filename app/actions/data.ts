@@ -30,14 +30,14 @@ interface GetTableDataResult {
 
 export async function getTableData(
   connection: Connection,
-  tableName: string
+  tableName: string,
+  Schema?: string
 ): Promise<GetTableDataResult> {
-  console.log("Fetching table data:", tableName, connection);
   try {
     if (connection.type === "mysql") {
       return await getMysqlData(connection, tableName);
     } else if (connection.type === "postgresql") {
-      const columnsRaw = await getTableColumns(connection, tableName);
+      const columnsRaw = await getTableColumns(connection, tableName, Schema);
 
       const columns: TableColumn[] = columnsRaw.map((col) => ({
         columnName: col.column_name,
@@ -58,6 +58,7 @@ export async function getTableData(
       const data = await getTableDatas({
         connection,
         tableName,
+        schema: Schema,
         limit: 20,
         page: 1,
       });
@@ -97,14 +98,15 @@ export async function getTableData(
 export async function insertRow(
   connection: Connection,
   tableName: string,
-  rowData: Record<string, unknown>
+  rowData: Record<string, unknown>,
+  schema?: string
 ): Promise<CrudResult> {
   try {
     if (connection.type === "mysql") {
       await insertMysqlRaw(connection, tableName, rowData);
       return { success: true, message: "Row inserted successfully." };
     } else if (connection.type === "postgresql") {
-      await insertDatas(connection, tableName, rowData);
+      await insertDatas(connection, tableName, rowData, schema);
       return { success: true, message: "Row inserted successfully." };
     } else if (connection.type === "mongodb") {
       await insertDoc(tableName, rowData, connection);
@@ -126,7 +128,8 @@ export async function updateRow(
   tableName: string,
   primaryKeyColumn: string,
   primaryKeyValue: string | number,
-  rowData: Record<string, unknown>
+  rowData: Record<string, unknown>,
+  schema?: string
 ): Promise<CrudResult> {
   try {
     if (connection.type === "mysql") {
@@ -142,7 +145,7 @@ export async function updateRow(
       const pk = {
         [primaryKeyColumn]: primaryKeyValue,
       };
-      await updateData(connection, tableName, pk, rowData);
+      await updateData(connection, tableName, pk, rowData, schema);
       return { success: true, message: "Row updated successfully." };
     } else if (connection.type === "mongodb") {
       await updateDoc(
@@ -168,7 +171,8 @@ export async function deleteRow(
   connection: Connection,
   tableName: string,
   primaryKeyColumn: string,
-  primaryKeyValue: string | number
+  primaryKeyValue: string | number,
+  schema?: string
 ): Promise<CrudResult> {
   try {
     if (connection.type === "mysql") {
@@ -183,7 +187,7 @@ export async function deleteRow(
       const pk = {
         [primaryKeyColumn]: primaryKeyValue,
       };
-      await deleteData(connection, tableName, pk);
+      await deleteData(connection, tableName, pk, schema);
       return { success: true, message: "Row deleted successfully." };
     } else if (connection.type === "mongodb") {
       await deleteDoc(tableName, primaryKeyValue?.toString(), connection);

@@ -8,8 +8,16 @@ import { Plus } from "lucide-react";
 import React from "react";
 import { CreateTableDialog } from "./CreateTableDialog";
 import { Connection } from "@/types/connection";
+import { CreateSchemaDialog } from "./createSchema";
 
-function SchemaOptions({ connection }: { connection: Connection }) {
+function SchemaOptions({
+  connection,
+  schema,
+}: {
+  connection: Connection;
+  schema?: string;
+}) {
+  console.log("here", schema);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger>
@@ -18,13 +26,9 @@ function SchemaOptions({ connection }: { connection: Connection }) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent>
-        <div className="flex flex-col gap-4 py-4 px-1  w-60">
-          <div>Schema</div>
-          <CreateTableDialog connection={connection} />
-
-          <div>Enum</div>
-          <div>Role</div>
-          <div>Policy</div>
+        <div className="flex flex-col  py-4 px-1  w-60">
+          <CreateSchemaDialog connection={connection} />
+          <CreateTableDialog connection={connection} schema={schema} />
         </div>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -1,5 +1,5 @@
 "use client";
-import { createTable } from "@/app/actions/postgres";
+import { createSchema } from "@/app/actions/postgres";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,21 +11,14 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-
 import { Connection } from "@/types/connection";
 import { useState } from "react";
 import { toast } from "sonner";
 
-export function CreateTableDialog({
-  connection,
-  schema,
-}: {
-  connection: Connection;
-  schema?: string;
-}) {
-  const [table, setTable] = useState<string>("");
+export function CreateSchemaDialog({ connection }: { connection: Connection }) {
+  const [schema, setSchema] = useState<string>("");
   const handleSubmit = () => {
-    const results = createTable(connection, table, schema);
+    const results = createSchema(connection, schema);
     toast.success("created");
   };
 
@@ -33,39 +26,27 @@ export function CreateTableDialog({
     <Dialog>
       <DialogTrigger asChild>
         <div className="cursor-pointer hover:bg-primary/10 p-2 rounded-md">
-          Add table
+          Add schema
         </div>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="text-sm">
-            Create Table{" "}
-            {schema ? (
-              <span>
-                {" "}
-                to <span className="text-red-500">{schema}</span> schema
-              </span>
-            ) : (
-              ""
-            )}
-          </DialogTitle>
-          <DialogDescription>
-            Enter the name for your new table.
-          </DialogDescription>
+          <DialogTitle>Create Schema</DialogTitle>
+          <DialogDescription>Enter schema name.</DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="  items-center gap-4">
+          <div className=" items-center gap-4">
             <Input
               id="tableName"
-              value={table}
+              value={schema}
               className="col-span-3"
-              onChange={(e) => setTable(e.target.value)}
+              onChange={(e) => setSchema(e.target.value)}
             />
           </div>
         </div>
         <DialogFooter>
           <Button type="submit" onClick={handleSubmit}>
-            Create Table
+            Create Schema
           </Button>
         </DialogFooter>
       </DialogContent>

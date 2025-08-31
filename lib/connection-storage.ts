@@ -18,7 +18,7 @@ export async function saveConnections(
         ...conn,
         encryptedCredentials: encryptedSensitiveData,
         password: "",
-      }; // Clear password after encryption
+      };
     })
   );
   localStorage.setItem(
@@ -50,7 +50,7 @@ export async function loadConnections(): Promise<Connection[]> {
           };
         } catch (error) {
           console.error("Error decrypting connection credentials:", error);
-          // Handle decryption errors, e.g., by returning the connection without sensitive data
+
           return { ...conn, password: "", filepath: "" };
         }
       }
@@ -65,13 +65,13 @@ export async function addConnection(
   newConnection: Partial<Connection>
 ): Promise<Connection[]> {
   const connections = await loadConnections();
-  // Ensure all required fields are present, or provide defaults as needed
+
   const connectionWithId: Connection = {
     id: uuidv4(),
     name: newConnection.name ?? "",
-    type: newConnection.type ?? "sqlite",
+    type: newConnection.type ?? "mysql",
     host: newConnection.host ?? "",
-    protocol: newConnection.protocol ?? "mongodb",
+    protocol: newConnection.protocol,
     search: newConnection.search ?? "",
     port: newConnection.port ?? 0,
     user: newConnection.user ?? "",

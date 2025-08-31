@@ -1,9 +1,7 @@
-// components/landing/FeaturesSection.tsx
-"use client"; // Required for framer-motion animations
+"use client";
 
 import { motion } from "framer-motion";
 import { ShieldCheck, Database, TerminalSquare, Share2 } from "lucide-react";
-import { Button } from "../ui/button";
 
 const features = [
   {
