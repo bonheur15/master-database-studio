@@ -1,15 +1,15 @@
 export interface Connection {
-  id: string; // UUID
+  id: string;
   name: string;
   type: "postgresql" | "mysql" | "mongodb";
   host: string;
-  protocol?: string; // Corrected from 'protocal'
+  protocol?: string;
   search?: string;
   port?: number;
   user: string;
   password: string;
   database: string;
-  filepath?: string; // For SQLite
+  filepath?: string;
   ssl?: boolean;
   encryptedCredentials?: string;
 }
@@ -18,9 +18,9 @@ export interface TableColumn {
   columnName: string;
   dataType: string;
   isNullable: boolean;
-  columnKey: string; // e.g., 'PRI', 'UNI', 'MUL'
+  columnKey: string;
   defaultValue: string | null;
-  extra: string; // e.g., 'auto_increment'
+  extra: string;
 }
 
 export interface TableSchema {
@@ -50,18 +50,6 @@ export interface CrudResult {
   success: boolean;
   message?: string;
 }
-
-const initialDetails = {
-  name: "",
-  type: "mysql" as Connection["type"],
-  protocol: undefined as Connection["protocol"],
-  search: undefined as Connection["search"],
-  host: "localhost",
-  port: undefined as Connection["port"],
-  user: "",
-  password: "",
-  database: "",
-};
 
 export type ColumnOptions = {
   name: string;

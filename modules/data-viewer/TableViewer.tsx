@@ -10,6 +10,7 @@ import {
   Search,
   Trash2,
   X,
+  Table2,
   Check,
   XCircle,
   Database,
@@ -90,7 +91,7 @@ export function TableViewer() {
   const schema = searchParams.get("schema");
 
   const [connection, setConnection] = useState<Connection | null>(null);
-  const [tableData, setTableData] = useState<Record<string, any>[]>([]);
+  const [tableData, setTableData] = useState<Record<string, unknown>[]>([]);
   const [tableSchema, setTableSchema] = useState<TableSchema | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -98,7 +99,9 @@ export function TableViewer() {
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
-  const [editingRowData, setEditingRowData] = useState<Record<string, any>>({});
+  const [editingRowData, setEditingRowData] = useState<Record<string, unknown>>(
+    {}
+  );
   const [isAddRowDialogOpen, setIsAddRowDialogOpen] = useState(false);
   const [deleteAlert, setDeleteAlert] = useState<{
     open: boolean;
@@ -137,7 +140,7 @@ export function TableViewer() {
         schema ? schema : undefined
       );
       if (result.success && result.data) {
-        setTableData(result.data);
+        setTableData(result.data as Record<string, unknown>[]);
         if (result.schema) {
           setTableSchema(result.schema);
           setVisibleColumns(result.schema.columns.map((col) => col.columnName));
@@ -153,7 +156,7 @@ export function TableViewer() {
       setLoading(false);
       setSelectedRows([]);
     }
-  }, [connectionId, tableName]);
+  }, [connectionId, tableName, schema]);
 
   if (connection) {
     console.log("hello from table", connection);
@@ -196,8 +199,11 @@ export function TableViewer() {
       filteredData.sort((a, b) => {
         const valA = a[sortConfig.key];
         const valB = b[sortConfig.key];
-        if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
-        if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+        // Convert unknowns to string for comparison
+        const aComp = valA === null || valA === undefined ? "" : String(valA);
+        const bComp = valB === null || valB === undefined ? "" : String(valB);
+        if (aComp < bComp) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aComp > bComp) return sortConfig.direction === "asc" ? 1 : -1;
         return 0;
       });
     }
@@ -211,14 +217,14 @@ export function TableViewer() {
 
   const totalPages = Math.ceil(processedData.length / rowsPerPage);
 
-  const handleEditClick = (row: Record<string, any>) => {
+  const handleEditClick = (row: Record<string, unknown>) => {
     if (!primaryKeyColumn) {
       toast.error("Edit Error", {
         description: "Table has no primary key defined for editing.",
       });
       return;
     }
-    setEditingRowId(row[primaryKeyColumn]?.toString());
+    setEditingRowId(row[primaryKeyColumn]?.toString() ?? null);
     setEditingRowData({ ...row });
   };
 
@@ -325,7 +331,7 @@ export function TableViewer() {
   if (!tableName) {
     return (
       <EmptyState
-        icon={Table}
+        icon={Table2}
         title="No Table Selected"
         description="Select a table from the sidebar to view its data."
       />
@@ -360,9 +366,11 @@ export function TableViewer() {
 
   const isAllOnPageSelected =
     paginatedData.length > 0 &&
-    paginatedData.every((row) => selectedRows.includes(row[primaryKeyColumn!]));
+    paginatedData.every((row) =>
+      selectedRows.includes(String(row[primaryKeyColumn!]))
+    );
   const isAnyOnPageSelected = paginatedData.some((row) =>
-    selectedRows.includes(row[primaryKeyColumn!])
+    selectedRows.includes(String(row[primaryKeyColumn!]))
   );
 
   return (
@@ -474,7 +482,12 @@ export function TableViewer() {
                       );
                       if (checked) {
                         setSelectedRows((prev) => [
-                          ...new Set([...prev, ...pageIds]),
+                          ...Array.from(
+                            new Set<string>([
+                              ...prev,
+                              ...pageIds.map((id) => String(id)),
+                            ])
+                          ),
                         ]);
                       } else {
                         setSelectedRows((prev) =>
@@ -523,12 +536,12 @@ export function TableViewer() {
                 return (
                   <TableRow
                     key={rowId}
-                    data-state={selectedRows.includes(rowId) && "selected"}
+                    data-state={selectedRows.includes(rowId!) && "selected"}
                   >
                     <TableCell>
                       <Checkbox
-                        checked={selectedRows.includes(rowId)}
-                        onCheckedChange={() => handleSelectRow(rowId)}
+                        checked={selectedRows.includes(rowId!)}
+                        onCheckedChange={() => handleSelectRow(rowId!)}
                         aria-label={`Select row ${rowId}`}
                       />
                     </TableCell>
@@ -541,7 +554,17 @@ export function TableViewer() {
                         >
                           {editingRowId === rowId ? (
                             <Input
-                              value={editingRowData[col.columnName] ?? ""}
+                              value={
+                                typeof editingRowData[col.columnName] ===
+                                  "object" &&
+                                editingRowData[col.columnName] !== null
+                                  ? JSON.stringify(
+                                      editingRowData[col.columnName]
+                                    )
+                                  : editingRowData[col.columnName] !== undefined
+                                  ? String(editingRowData[col.columnName])
+                                  : ""
+                              }
                               onChange={(e) =>
                                 setEditingRowData((prev) => ({
                                   ...prev,
@@ -592,7 +615,7 @@ export function TableViewer() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                              onClick={() => handleDeleteRequest([rowId])}
+                              onClick={() => handleDeleteRequest([rowId!])}
                             >
                               <Trash2 className="mr-2 h-4 w-4" /> Delete Row
                             </DropdownMenuItem>

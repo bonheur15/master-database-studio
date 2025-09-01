@@ -1,7 +1,6 @@
 "use server";
 
 import { mysqlConnector } from "@/lib/adapters/mysql";
-import { pgConnector } from "@/lib/adapters/postgres";
 import { buildSQL, sanitizeIdentifier } from "@/lib/helpers/helpers";
 import {
   ColumnOptions,
@@ -13,7 +12,6 @@ import {
 export async function getMysqlData(connection: Connection, tableName: string) {
   const mysqlConnection = await mysqlConnector(connection);
 
-  // Get schema
   const [schemaRows] = await mysqlConnection.execute(
     `SHOW COLUMNS FROM \`${tableName}\``
   );
