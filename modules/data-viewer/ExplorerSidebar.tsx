@@ -65,16 +65,18 @@ export function ExplorerSidebar() {
     if (schemas && schemas.length > 0 && !SelectedSchema) {
       setSelectedSchema(schemas[0]);
     }
-  }, [schemas, SelectedSchema]);
+  }, [schemas, SelectedSchema, connectionId]);
   useEffect(() => {
     const fetchSchemas = async () => {
       if (connected) {
-        const result = await getSchemas(connected);
-        setSchema(result);
+        const schema = await getSchemas(connected);
+        if (schema.success) {
+          setSchema(schema.schemas);
+        }
       }
     };
     fetchSchemas();
-  }, [connected]);
+  }, [connected, connectionId]);
 
   useEffect(() => {
     const fetchTables = async () => {
@@ -96,7 +98,6 @@ export function ExplorerSidebar() {
             result = await getMysqlTables(currentConnection);
           }
           if (currentConnection.type === "mongodb") {
-            console.log("fuckkkkk", currentConnection);
             result = await getCollections(currentConnection);
           }
           if (currentConnection.type === "postgresql") {
@@ -104,7 +105,7 @@ export function ExplorerSidebar() {
           }
           if (result.success && result.tables) {
             setTables(result.tables);
-            if (result.tables.length > 0 && !tableName) {
+            if (result.tables?.length > 0) {
               setActiveTable(result.tables[0].name);
             }
           } else {

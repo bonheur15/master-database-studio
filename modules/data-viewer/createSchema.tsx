@@ -17,9 +17,13 @@ import { toast } from "sonner";
 
 export function CreateSchemaDialog({ connection }: { connection: Connection }) {
   const [schema, setSchema] = useState<string>("");
-  const handleSubmit = () => {
-    const results = createSchema(connection, schema);
-    toast.success("created");
+  const handleSubmit = async () => {
+    const results = await createSchema(connection, schema);
+    if (results.success) {
+      toast.success(results.message ?? "schema created successfully");
+    } else {
+      toast.error(results.message ?? "failed to create schema");
+    }
   };
 
   return (

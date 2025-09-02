@@ -1,4 +1,5 @@
 "use client";
+import { createMysqlTable } from "@/app/actions/mysql";
 import { createTable } from "@/app/actions/postgres";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,9 +25,18 @@ export function CreateTableDialog({
   schema?: string;
 }) {
   const [table, setTable] = useState<string>("");
-  const handleSubmit = () => {
-    const results = createTable(connection, table, schema);
-    toast.success("created");
+  const handleSubmit = async () => {
+    if (connection.type === "postgresql") {
+      const result = await createTable(connection, table, schema);
+      if (result.success) {
+        toast.success(result.message ?? "Table create successfully");
+      } else {
+        toast.error(result.message ?? "failed to create table");
+      }
+    } else {
+      const result = await createMysqlTable(connection, table);
+      toast.success("table created");
+    }
   };
 
   return (

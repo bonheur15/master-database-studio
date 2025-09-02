@@ -4,17 +4,55 @@ import { pgConnector } from "@/lib/adapters/postgres";
 import { buildSQL } from "@/lib/helpers/helpers";
 import { ColumnOptions, Connection } from "@/types/connection";
 
-export async function getSchemas(connection: Connection) {
-  const client = await pgConnector(connection);
+export async function getSchemas(connection: Connection): Promise<{
+  success: boolean;
+  schemas?: string[];
+  message?: string;
+}> {
+  let client;
+  try {
+    client = await pgConnector(connection);
 
-  const query = `SELECT schema_name FROM information_schema.schemata WHERE schema_name NOT IN ('pg_catalog', 'information_schema')
-  AND schema_name NOT LIKE 'pg_toast%'
-  AND schema_name NOT LIKE 'pg_temp%';`;
-  const data = await client.query(query);
-  await client.end();
-  const schemas = data.rows.map((row) => row.schema_name as string);
-  return schemas;
+    const query = `
+      SELECT schema_name 
+      FROM information_schema.schemata 
+      WHERE schema_name NOT IN ('pg_catalog', 'information_schema')
+      AND schema_name NOT LIKE 'pg_toast%'
+      AND schema_name NOT LIKE 'pg_temp%';
+    `;
+
+    const data = await client.query<{ schema_name: string }>(query);
+
+    const schemas = data.rows.map((row) => row.schema_name);
+
+    return {
+      success: true,
+      schemas,
+    };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error in getSchemas:", error.message);
+    } else {
+      console.error("Unknown error in getSchemas:", error);
+    }
+
+    return {
+      success: false,
+      message: "Failed to fetch schemas. Please try again later.",
+    };
+  } finally {
+    if (client) {
+      await client.end().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error("Error closing client in getSchemas:", endErr.message);
+        } else {
+          console.error("Unknown error closing client in getSchemas:", endErr);
+        }
+      });
+    }
+  }
 }
+
 export async function getPgTableNames(
   connection: Connection,
   schema?: string
@@ -24,6 +62,7 @@ export async function getPgTableNames(
   message?: string;
   schema?: string;
 }> {
+  let client;
   try {
     if (connection.type !== "postgresql") {
       return {
@@ -40,7 +79,7 @@ export async function getPgTableNames(
       };
     }
 
-    const client = await pgConnector(connection);
+    client = await pgConnector(connection);
 
     const query = schema
       ? `
@@ -73,8 +112,6 @@ export async function getPgTableNames(
       tablesWithCounts.push({ name: tableName, count });
     }
 
-    await client.end();
-
     return { success: true, tables: tablesWithCounts, schema };
   } catch (error) {
     console.error("Error fetching PostgreSQL tables:", error);
@@ -82,6 +119,14 @@ export async function getPgTableNames(
       success: false,
       message: `Failed to fetch tables: ${(error as Error).message}`,
     };
+  } finally {
+    if (client) {
+      await client
+        .end()
+        .catch((endErr) =>
+          console.error("Error closing client in getPgTableNames:", endErr)
+        );
+    }
   }
 }
 
@@ -89,49 +134,103 @@ export async function getTableColumns(
   connection: Connection,
   tableName: string,
   schema?: string
-) {
-  const client = await pgConnector(connection);
-  console.log("please", schema);
+): Promise<{
+  success: boolean;
+  columns?: {
+    column_name: string;
+    data_type: string;
+    column_default: string | null;
+    character_maximum_length: number | null;
+    is_nullable: "YES" | "NO";
+    numeric_precision: number | null;
+    dtd_identifier: string;
+    constraint_type: "PRIMARY KEY" | "UNIQUE" | null;
+  }[];
+  message?: string;
+}> {
+  let client;
+  try {
+    client = await pgConnector(connection);
 
-  const query = `
-    SELECT
-      cols.column_name,
-      cols.data_type,
-      cols.column_default,
-      cols.character_maximum_length,
-      cols.is_nullable,
-      cols.numeric_precision,
-      cols.dtd_identifier,
-      CASE
-        WHEN tc.constraint_type = 'PRIMARY KEY' THEN 'PRIMARY KEY'
-        WHEN tc.constraint_type = 'UNIQUE' THEN 'UNIQUE'
-        ELSE NULL
-      END AS constraint_type
-    FROM
-      information_schema.columns cols
-    LEFT JOIN
-      information_schema.key_column_usage kcu
-      ON cols.table_name = kcu.table_name
-      AND cols.column_name = kcu.column_name
-      AND cols.table_schema = kcu.table_schema
-    LEFT JOIN
-      information_schema.table_constraints tc
-      ON tc.constraint_name = kcu.constraint_name
-      AND tc.table_name = cols.table_name
-      AND tc.table_schema = cols.table_schema
-      AND tc.constraint_type IN ('PRIMARY KEY', 'UNIQUE')
-    WHERE
-      cols.table_name = $1
-      AND cols.table_schema = $2
-  `;
+    const query = `
+      SELECT
+        cols.column_name,
+        cols.data_type,
+        cols.column_default,
+        cols.character_maximum_length,
+        cols.is_nullable,
+        cols.numeric_precision,
+        cols.dtd_identifier,
+        CASE
+          WHEN tc.constraint_type = 'PRIMARY KEY' THEN 'PRIMARY KEY'
+          WHEN tc.constraint_type = 'UNIQUE' THEN 'UNIQUE'
+          ELSE NULL
+        END AS constraint_type
+      FROM
+        information_schema.columns cols
+      LEFT JOIN
+        information_schema.key_column_usage kcu
+        ON cols.table_name = kcu.table_name
+        AND cols.column_name = kcu.column_name
+        AND cols.table_schema = kcu.table_schema
+      LEFT JOIN
+        information_schema.table_constraints tc
+        ON tc.constraint_name = kcu.constraint_name
+        AND tc.table_name = cols.table_name
+        AND tc.table_schema = cols.table_schema
+        AND tc.constraint_type IN ('PRIMARY KEY', 'UNIQUE')
+      WHERE
+        cols.table_name = $1
+        AND cols.table_schema = $2
+    `;
 
-  const params = schema ? [tableName, schema] : [tableName, "public"];
+    const params = schema ? [tableName, schema] : [tableName, "public"];
 
-  const response = await client.query(query, params);
+    const response = await client.query<{
+      column_name: string;
+      data_type: string;
+      column_default: string | null;
+      character_maximum_length: number | null;
+      is_nullable: "YES" | "NO";
+      numeric_precision: number | null;
+      dtd_identifier: string;
+      constraint_type: "PRIMARY KEY" | "UNIQUE" | null;
+    }>(query, params);
 
-  await client.end();
-
-  return response.rows;
+    return {
+      success: true,
+      columns: response.rows,
+    };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error fetching table columns:", error.message);
+      return {
+        success: false,
+        message: `Failed to fetch table columns: ${error.message}`,
+      };
+    }
+    console.error("Unknown error fetching table columns:", error);
+    return {
+      success: false,
+      message: "Failed to fetch table columns due to an unknown error.",
+    };
+  } finally {
+    if (client) {
+      await client.end().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error(
+            "Error closing client in getTableColumns:",
+            endErr.message
+          );
+        } else {
+          console.error(
+            "Unknown error closing client in getTableColumns:",
+            endErr
+          );
+        }
+      });
+    }
+  }
 }
 
 export async function getTableDatas({
@@ -146,29 +245,70 @@ export async function getTableDatas({
   schema?: string;
   limit?: number;
   page?: number;
-}) {
-  const offset = (page - 1) * limit;
-  const client = await pgConnector(connection);
+}): Promise<{
+  success: boolean;
+  rows?: Record<string, unknown>[];
+  message?: string;
+}> {
+  let client;
+  try {
+    const offset = (page - 1) * limit;
 
-  // validate identifiers
-  const isValidIdent = (name: string) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
-  if (!isValidIdent(tableName)) throw new Error("Invalid table name");
-  if (schema && !isValidIdent(schema)) throw new Error("Invalid schema name");
+    client = await pgConnector(connection);
 
-  // build qualified table name
-  const fullTableName = schema
-    ? `"${schema}"."${tableName}"`
-    : `"${tableName}"`;
+    // validate identifiers to avoid SQL injection
+    const isValidIdent = (name: string) =>
+      /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
 
-  // parameterize LIMIT + OFFSET, keep identifiers safely quoted
-  const response = await client.query(
-    `SELECT * FROM ${fullTableName} LIMIT $1 OFFSET $2`,
-    [limit, offset]
-  );
+    if (!isValidIdent(tableName)) {
+      return { success: false, message: "Invalid table name" };
+    }
+    if (schema && !isValidIdent(schema)) {
+      return { success: false, message: "Invalid schema name" };
+    }
 
-  await client.end();
+    // build qualified table name (safe because of regex check)
+    const fullTableName = schema
+      ? `"${schema}"."${tableName}"`
+      : `"${tableName}"`;
 
-  return response.rows;
+    // parameterize LIMIT + OFFSET, keep identifiers safely quoted
+    const response = await client.query<Record<string, unknown>>(
+      `SELECT * FROM ${fullTableName} LIMIT $1 OFFSET $2`,
+      [limit, offset]
+    );
+
+    return { success: true, rows: response.rows };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error fetching table data:", error.message);
+      return {
+        success: false,
+        message: `Failed to fetch table data: ${error.message}`,
+      };
+    }
+    console.error("Unknown error fetching table data:", error);
+    return {
+      success: false,
+      message: "Failed to fetch table data due to an unknown error.",
+    };
+  } finally {
+    if (client) {
+      await client.end().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error(
+            "Error closing client in getTableDatas:",
+            endErr.message
+          );
+        } else {
+          console.error(
+            "Unknown error closing client in getTableDatas:",
+            endErr
+          );
+        }
+      });
+    }
+  }
 }
 
 export async function insertDatas(
@@ -176,28 +316,78 @@ export async function insertDatas(
   tableName: string,
   data: Record<string, unknown>,
   schema?: string
-) {
-  const client = await pgConnector(connection);
+): Promise<{
+  success: boolean;
+  rows?: Record<string, unknown>[];
+  message?: string;
+}> {
+  let client;
+  try {
+    client = await pgConnector(connection);
 
-  console.log("insert", schema);
+    const isValidIdent = (name: string) =>
+      /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
 
-  const columns = Object.keys(data);
-  const values = Object.values(data);
+    if (!isValidIdent(tableName)) {
+      return { success: false, message: "Invalid table name" };
+    }
+    if (schema && !isValidIdent(schema)) {
+      return { success: false, message: "Invalid schema name" };
+    }
 
-  const placeHolders = columns.map((_, i) => `$${i + 1}`).join(", ");
+    const columns = Object.keys(data);
+    if (columns.length === 0) {
+      return { success: false, message: "No data provided for insert" };
+    }
 
-  const fullTableName = schema
-    ? `"${schema}"."${tableName}"`
-    : `"${tableName}"`;
+    for (const col of columns) {
+      if (!isValidIdent(col)) {
+        return { success: false, message: `Invalid column name: ${col}` };
+      }
+    }
 
-  const query = `INSERT INTO ${fullTableName} (${columns
-    .map((col) => `"${col}"`)
-    .join(", ")}) VALUES(${placeHolders}) RETURNING *`;
+    const values = Object.values(data);
+    const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
 
-  const response = await client.query(query, values);
-  await client.end();
+    const fullTableName = schema
+      ? `"${schema}"."${tableName}"`
+      : `"${tableName}"`;
 
-  return response.rows;
+    const query = `
+      INSERT INTO ${fullTableName} (${columns
+      .map((col) => `"${col}"`)
+      .join(", ")})
+      VALUES (${placeholders})
+      RETURNING *
+    `;
+
+    const response = await client.query<Record<string, unknown>>(query, values);
+
+    return { success: true, rows: response.rows };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error inserting data:", error.message);
+      return {
+        success: false,
+        message: `Failed to insert data: ${error.message}`,
+      };
+    }
+    console.error("Unknown error inserting data:", error);
+    return {
+      success: false,
+      message: "Failed to insert data due to an unknown error.",
+    };
+  } finally {
+    if (client) {
+      await client.end().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error("Error closing client in insertDatas:", endErr.message);
+        } else {
+          console.error("Unknown error closing client in insertDatas:", endErr);
+        }
+      });
+    }
+  }
 }
 
 export async function updateData(
@@ -206,37 +396,77 @@ export async function updateData(
   pk: Record<string, unknown>,
   data: Record<string, unknown>,
   schema?: string
-) {
-  const client = await pgConnector(connection);
+): Promise<{
+  success: boolean;
+  rows?: Record<string, unknown>[];
+  message?: string;
+}> {
+  let client;
+  try {
+    client = await pgConnector(connection);
 
-  const columns = Object.keys(data);
-  const values = Object.values(data);
+    const columns = Object.keys(data);
+    const values = Object.values(data);
 
-  // Properly quote identifiers
-  const quoteIdent = (ident: string) => `"${ident.replace(/"/g, '""')}"`;
+    const quoteIdent = (ident: string) => `"${ident.replace(/"/g, '""')}"`;
 
-  const placeHolders = columns
-    .map((column, i) => `${quoteIdent(column)} = $${i + 1}`)
-    .join(", ");
+    if (columns.length === 0) {
+      return { success: false, message: "No columns provided for update" };
+    }
 
-  const pkColumn = Object.keys(pk)[0];
-  const pkValue = Object.values(pk)[0];
-  const pkParameterized = values.length + 1;
-  const fullTableName = schema
-    ? `"${schema}"."${tableName}"`
-    : `"${tableName}"`;
+    const pkColumn = Object.keys(pk)[0];
+    const pkValue = Object.values(pk)[0];
+    if (!pkColumn) {
+      return { success: false, message: "No primary key specified" };
+    }
 
-  const query = `
-    UPDATE ${fullTableName}
-    SET ${placeHolders}
-    WHERE ${quoteIdent(pkColumn)} = $${pkParameterized}
-    RETURNING *;
-  `;
+    const placeHolders = columns
+      .map((column, i) => `${quoteIdent(column)} = $${i + 1}`)
+      .join(", ");
 
-  const response = await client.query(query, [...values, pkValue]);
-  await client.end();
+    const pkParameterized = values.length + 1;
 
-  return response.rows;
+    const fullTableName = schema
+      ? `"${schema}"."${tableName}"`
+      : `"${tableName}"`;
+
+    const query = `
+      UPDATE ${fullTableName}
+      SET ${placeHolders}
+      WHERE ${quoteIdent(pkColumn)} = $${pkParameterized}
+      RETURNING *
+    `;
+
+    const response = await client.query<Record<string, unknown>>(query, [
+      ...values,
+      pkValue,
+    ]);
+
+    return { success: true, rows: response.rows };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error updating data:", error.message);
+      return {
+        success: false,
+        message: `Failed to update data: ${error.message}`,
+      };
+    }
+    console.error("Unknown error updating data:", error);
+    return {
+      success: false,
+      message: "Failed to update data due to an unknown error.",
+    };
+  } finally {
+    if (client) {
+      await client.end().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error("Error closing client in updateData:", endErr.message);
+        } else {
+          console.error("Unknown error closing client in updateData:", endErr);
+        }
+      });
+    }
+  }
 }
 
 export async function deleteData(
@@ -244,45 +474,121 @@ export async function deleteData(
   tableName: string,
   pk: Record<string, unknown>,
   schema?: string
-) {
-  const client = await pgConnector(connection);
+): Promise<{ success: boolean; message?: string }> {
+  let client;
+  try {
+    client = await pgConnector(connection);
 
-  const pkColumn = Object.keys(pk);
-  const pkValue = Object.values(pk);
+    const pkColumn = Object.keys(pk)[0];
+    const pkValue = Object.values(pk)[0];
 
-  if (!pkColumn || pkValue === undefined) {
-    throw new Error("Primary key is missing or invalid.");
+    if (!pkColumn || pkValue === undefined) {
+      return { success: false, message: "Primary key is missing or invalid." };
+    }
+
+    const isValidIdent = (name: string) =>
+      /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
+
+    if (!isValidIdent(tableName)) {
+      return { success: false, message: "Invalid table name" };
+    }
+    if (schema && !isValidIdent(schema)) {
+      return { success: false, message: "Invalid schema name" };
+    }
+    if (!isValidIdent(pkColumn)) {
+      return {
+        success: false,
+        message: `Invalid primary key column: ${pkColumn}`,
+      };
+    }
+
+    const fullTableName = schema
+      ? `"${schema}"."${tableName}"`
+      : `"${tableName}"`;
+
+    const query = `DELETE FROM ${fullTableName} WHERE "${pkColumn}" = $1`;
+
+    await client.query(query, [pkValue]);
+
+    return { success: true, message: "Row deleted successfully." };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error deleting data:", error.message);
+      return {
+        success: false,
+        message: `Failed to delete data: ${error.message}`,
+      };
+    }
+    console.error("Unknown error deleting data:", error);
+    return {
+      success: false,
+      message: "Failed to delete data due to an unknown error.",
+    };
+  } finally {
+    if (client) {
+      await client.end().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error("Error closing client in deleteData:", endErr.message);
+        } else {
+          console.error("Unknown error closing client in deleteData:", endErr);
+        }
+      });
+    }
   }
-
-  const fullTableName = schema
-    ? `"${schema}"."${tableName}"`
-    : `"${tableName}"`;
-
-  const query = `DELETE FROM ${fullTableName} WHERE ${pkColumn} = $1 `;
-
-  await client.query(query, pkValue);
-
-  await client.end();
-
-  return { success: true };
 }
 
 export async function createTable(
   connection: Connection,
   tableName: string,
   schema?: string
-) {
-  console.log("inside", connection);
-  const client = await pgConnector(connection);
-  const fullTableName = schema
-    ? `"${schema}"."${tableName}"`
-    : `"${tableName}"`;
+): Promise<{ success: boolean; message?: string }> {
+  let client;
+  try {
+    client = await pgConnector(connection);
 
-  const query = `CREATE TABLE ${fullTableName} ();`;
+    const isValidIdent = (name: string) =>
+      /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
 
-  await client.query(query);
-  await client.end();
-  return { success: true };
+    if (!isValidIdent(tableName)) {
+      return { success: false, message: "Invalid table name" };
+    }
+    if (schema && !isValidIdent(schema)) {
+      return { success: false, message: "Invalid schema name" };
+    }
+
+    const fullTableName = schema
+      ? `"${schema}"."${tableName}"`
+      : `"${tableName}"`;
+
+    const query = `CREATE TABLE ${fullTableName} ();`;
+
+    await client.query(query);
+
+    return { success: true, message: "Table created successfully." };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error creating table:", error.message);
+      return {
+        success: false,
+        message: `Failed to create table: ${error.message}`,
+      };
+    }
+    console.error("Unknown error creating table:", error);
+    return {
+      success: false,
+      message: "Failed to create table due to an unknown error.",
+    };
+  } finally {
+    if (client) {
+      await client.end().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error("Error closing client in createTable:", endErr.message);
+        } else {
+          console.error("Unknown error closing client in createTable:", endErr);
+        }
+      });
+    }
+  }
 }
 
 export async function addPostgresColumn(
@@ -290,37 +596,110 @@ export async function addPostgresColumn(
   columns: ColumnOptions[],
   tableName: string,
   schema?: string
-) {
-  const client = await pgConnector(connection);
-  console.log("now please", schema);
+): Promise<{ success: boolean; message?: string }> {
+  let client;
+  try {
+    client = await pgConnector(connection);
 
-  const isValidIdent = (name: string) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
-  if (!isValidIdent(tableName)) throw new Error("Invalid table name");
-  if (schema && !isValidIdent(schema)) throw new Error("Invalid schema name");
+    const isValidIdent = (name: string) =>
+      /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
 
-  const fullTableName = schema
-    ? `"${schema}"."${tableName}"`
-    : `"${tableName}"`;
+    if (!isValidIdent(tableName)) {
+      return { success: false, message: "Invalid table name" };
+    }
+    if (schema && !isValidIdent(schema)) {
+      return { success: false, message: "Invalid schema name" };
+    }
 
-  const query = buildSQL(columns, "postgresql", fullTableName);
+    const fullTableName = schema
+      ? `"${schema}"."${tableName}"`
+      : `"${tableName}"`;
 
-  console.log("Generated query:", query);
+    const query = buildSQL(columns, "postgresql", fullTableName);
 
-  await client.query(query);
-  await client.end();
+    console.log("Generated query:", query);
 
-  return { success: true };
+    await client.query(query);
+
+    return { success: true, message: "Columns added successfully." };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error adding columns:", error.message);
+      return {
+        success: false,
+        message: `Failed to add columns: ${error.message}`,
+      };
+    }
+    console.error("Unknown error adding columns:", error);
+    return {
+      success: false,
+      message: "Failed to add columns due to an unknown error.",
+    };
+  } finally {
+    if (client) {
+      await client.end().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error(
+            "Error closing client in addPostgresColumn:",
+            endErr.message
+          );
+        } else {
+          console.error(
+            "Unknown error closing client in addPostgresColumn:",
+            endErr
+          );
+        }
+      });
+    }
+  }
 }
 
-export async function createSchema(connection: Connection, schema: string) {
-  const client = await pgConnector(connection);
-  if (!/^[a-zA-Z0-9_]+$/.test(schema)) {
-    throw new Error("Invalid schema name");
+export async function createSchema(
+  connection: Connection,
+  schema: string
+): Promise<{ success: boolean; message?: string }> {
+  let client;
+  try {
+    client = await pgConnector(connection);
+
+    const isValidIdent = (name: string) => /^[a-zA-Z0-9_]+$/.test(name);
+    if (!isValidIdent(schema)) {
+      return { success: false, message: "Invalid schema name" };
+    }
+
+    const query = `CREATE SCHEMA "${schema}"`;
+
+    await client.query(query);
+
+    return { success: true, message: "Schema created successfully." };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error creating schema:", error.message);
+      return {
+        success: false,
+        message: `Failed to create schema: ${error.message}`,
+      };
+    }
+    console.error("Unknown error creating schema:", error);
+    return {
+      success: false,
+      message: "Failed to create schema due to an unknown error.",
+    };
+  } finally {
+    if (client) {
+      await client.end().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error(
+            "Error closing client in createSchema:",
+            endErr.message
+          );
+        } else {
+          console.error(
+            "Unknown error closing client in createSchema:",
+            endErr
+          );
+        }
+      });
+    }
   }
-  const query = `CREATE SCHEMA ${schema}`;
-  await client.query(query);
-
-  await client.end();
-
-  return { success: true };
 }

@@ -37,9 +37,13 @@ export async function getTableData(
     if (connection.type === "mysql") {
       return await getMysqlData(connection, tableName);
     } else if (connection.type === "postgresql") {
-      const columnsRaw = await getTableColumns(connection, tableName, Schema);
+      const result = await getTableColumns(connection, tableName, Schema);
 
-      const columns: TableColumn[] = columnsRaw.map((col) => ({
+      if (!result.success || !result.columns) {
+        throw new Error(result.message ?? "Failed to fetch columns");
+      }
+
+      const columns: TableColumn[] = result.columns.map((col) => ({
         columnName: col.column_name,
         dataType: col.data_type,
         isNullable: col.is_nullable === "YES",
@@ -52,10 +56,8 @@ export async function getTableData(
       }));
 
       const schema: TableSchema = { tableName, columns };
-      console.log("shema:", schema);
 
-      // Get data (defaulting to first 20 rows, page 1)
-      const data = await getTableDatas({
+      const dataResult = await getTableDatas({
         connection,
         tableName,
         schema: Schema,
@@ -63,7 +65,11 @@ export async function getTableData(
         page: 1,
       });
 
-      return { success: true, data, schema };
+      if (!dataResult.success || !dataResult.rows) {
+        throw new Error(dataResult.message ?? "Failed to fetch table data");
+      }
+
+      return { success: true, data: dataResult.rows, schema };
     } else if (connection.type === "mongodb") {
       try {
         const data = await getCollectionDocs({
@@ -106,7 +112,17 @@ export async function insertRow(
       await insertMysqlRaw(connection, tableName, rowData);
       return { success: true, message: "Row inserted successfully." };
     } else if (connection.type === "postgresql") {
-      await insertDatas(connection, tableName, rowData, schema);
+      const insertResult = await insertDatas(
+        connection,
+        tableName,
+        rowData,
+        schema
+      );
+
+      if (!insertResult.success) {
+        throw new Error(insertResult.message ?? "Failed to insert row");
+      }
+
       return { success: true, message: "Row inserted successfully." };
     } else if (connection.type === "mongodb") {
       await insertDoc(tableName, rowData, connection);
@@ -145,7 +161,16 @@ export async function updateRow(
       const pk = {
         [primaryKeyColumn]: primaryKeyValue,
       };
-      await updateData(connection, tableName, pk, rowData, schema);
+      const result = await updateData(
+        connection,
+        tableName,
+        pk,
+        rowData,
+        schema
+      );
+      if (!result.success) {
+        throw new Error(result.message ?? "Failed to update row");
+      }
       return { success: true, message: "Row updated successfully." };
     } else if (connection.type === "mongodb") {
       await updateDoc(
@@ -187,7 +212,11 @@ export async function deleteRow(
       const pk = {
         [primaryKeyColumn]: primaryKeyValue,
       };
-      await deleteData(connection, tableName, pk, schema);
+      const deleteResult = await deleteData(connection, tableName, pk, schema);
+      if (!deleteResult.success) {
+        throw new Error(deleteResult.message ?? "failed to delete row");
+      }
+
       return { success: true, message: "Row deleted successfully." };
     } else if (connection.type === "mongodb") {
       await deleteDoc(tableName, primaryKeyValue?.toString(), connection);

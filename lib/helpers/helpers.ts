@@ -183,3 +183,9 @@ export function buildSQL(
 
   return "";
 }
+
+export function generatMysqlDummyColumnName(): string {
+  const prefix = "portalv1_placeholder_";
+  const random = Math.random().toString(16).slice(2, 10);
+  return `${prefix}${random}`;
+}

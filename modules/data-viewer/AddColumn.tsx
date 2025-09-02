@@ -28,6 +28,7 @@ import { buildSQLFragment } from "@/lib/helpers/helpers";
 import { addPostgresColumn } from "@/app/actions/postgres";
 import { Plus } from "lucide-react";
 import { addMysqlColumn } from "@/app/actions/mysql";
+import { toast } from "sonner";
 
 export default function AddColumnDialog({
   tableName,
@@ -94,9 +95,19 @@ export default function AddColumnDialog({
     setStep("review");
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (dialect === "postgresql") {
-      addPostgresColumn(connection, columns, tableName, schema);
+      const result = await addPostgresColumn(
+        connection,
+        columns,
+        tableName,
+        schema
+      );
+      if (result.success) {
+        toast.success(result.message ?? "column created successfuly ");
+      } else {
+        toast.error(result.message ?? "failed to create column");
+      }
     } else if (dialect === "mysql") {
       addMysqlColumn(connection, columns, tableName);
     }

@@ -1,13 +1,18 @@
 "use server";
 
 import { mysqlConnector } from "@/lib/adapters/mysql";
-import { buildSQL, sanitizeIdentifier } from "@/lib/helpers/helpers";
+import {
+  buildSQL,
+  generatMysqlDummyColumnName,
+  sanitizeIdentifier,
+} from "@/lib/helpers/helpers";
 import {
   ColumnOptions,
   Connection,
   TableColumn,
   TableSchema,
 } from "@/types/connection";
+import { randomUUID } from "crypto";
 
 export async function getMysqlData(connection: Connection, tableName: string) {
   const mysqlConnection = await mysqlConnector(connection);
@@ -113,5 +118,19 @@ export async function addMysqlColumn(
   const query = buildSQL(column, "mysql", tableName);
   client.query(query);
   client.end();
+  return { success: true };
+}
+
+export async function createMysqlTable(
+  connection: Connection,
+  tableName: string
+) {
+  const client = await mysqlConnector(connection);
+
+  const query = `CREATE TABLE ${tableName} (${generatMysqlDummyColumnName()} TINYINT NULL)`;
+
+  await client.execute(query);
+  await client.end();
+
   return { success: true };
 }

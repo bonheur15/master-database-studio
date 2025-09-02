@@ -6,7 +6,7 @@ import { highlight, languages } from "prismjs/components/prism-core";
 import "prismjs/components/prism-sql";
 import "prismjs/themes/prism-tomorrow.css";
 import { format } from "sql-formatter";
-import { Play, Sparkles, X, PlusCircle, Loader } from "lucide-react";
+import { Play, Sparkles, X, PlusCircle, Loader, History } from "lucide-react";
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,13 @@ import { executeQuery } from "@/app/actions/query";
 import { Connection } from "@/types/connection";
 import { loadConnections } from "@/lib/connection-storage";
 import { useSearchParams } from "next/navigation";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 const initialTabs = [
   { id: "tab1", name: "Query 1", query: "SELECT * FROM users;" },
@@ -201,7 +208,7 @@ export function QueryEditor() {
             </Tooltip>
 
             {/* to do a querry hostory*/}
-            {/* <Sheet>
+            <Sheet>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon">
                   <History className="h-4 w-4" />
@@ -228,7 +235,7 @@ export function QueryEditor() {
                   )}
                 </div>
               </SheetContent>
-            </Sheet> */}
+            </Sheet>
 
             {/* export query*/}
             {/* <DropdownMenu>
