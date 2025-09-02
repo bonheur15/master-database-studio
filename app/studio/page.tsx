@@ -66,7 +66,7 @@ function StudioPage() {
               description: `Error: ${error.message}`,
             });
           });
-      } catch (error) {
+      } catch {
         toast.error("Invalid Token", {
           description: "The provided connection token is invalid.",
         });

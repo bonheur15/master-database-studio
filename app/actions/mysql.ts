@@ -171,7 +171,7 @@ export async function deleteMysqlRow(
     }
 
     const query = `DELETE FROM \`${tableName}\` WHERE \`${primaryKeyColumn}\` = ?`;
-    const [result] = await mysqlConnection.execute(query, [primaryKeyValue]);
+    await mysqlConnection.execute(query, [primaryKeyValue]);
 
     return { success: true, message: "Row deleted successfully." };
   } catch (error: unknown) {
