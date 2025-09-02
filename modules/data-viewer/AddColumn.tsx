@@ -109,7 +109,12 @@ export default function AddColumnDialog({
         toast.error(result.message ?? "failed to create column");
       }
     } else if (dialect === "mysql") {
-      addMysqlColumn(connection, columns, tableName);
+      const result = await addMysqlColumn(connection, columns, tableName);
+      if (result.success) {
+        toast.success(result.message ?? "column created successfully");
+      } else {
+        toast.error(result.message ?? "failed to create column");
+      }
     }
 
     setStep("form");

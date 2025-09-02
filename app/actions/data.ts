@@ -109,8 +109,12 @@ export async function insertRow(
 ): Promise<CrudResult> {
   try {
     if (connection.type === "mysql") {
-      await insertMysqlRaw(connection, tableName, rowData);
-      return { success: true, message: "Row inserted successfully." };
+      const result = await insertMysqlRaw(connection, tableName, rowData);
+      if (result.success) {
+        return { success: true, message: "Row inserted successfully." };
+      } else {
+        return { success: false, message: "failed to insert row." };
+      }
     } else if (connection.type === "postgresql") {
       const insertResult = await insertDatas(
         connection,
@@ -149,14 +153,21 @@ export async function updateRow(
 ): Promise<CrudResult> {
   try {
     if (connection.type === "mysql") {
-      await updateMysqlRow(
+      const result = await updateMysqlRow(
         connection,
         tableName,
         primaryKeyColumn,
         primaryKeyValue,
         rowData
       );
-      return { success: true, message: "Row updated successfully." };
+      if (result.success) {
+        return { success: true, message: "Row updated successfully." };
+      } else {
+        return {
+          success: false,
+          message: result.message ?? "failed to update row.",
+        };
+      }
     } else if (connection.type === "postgresql") {
       const pk = {
         [primaryKeyColumn]: primaryKeyValue,
@@ -201,13 +212,17 @@ export async function deleteRow(
 ): Promise<CrudResult> {
   try {
     if (connection.type === "mysql") {
-      await deleteMysqlRow(
+      const result = await deleteMysqlRow(
         connection,
         tableName,
         primaryKeyColumn,
         primaryKeyValue
       );
-      return { success: true, message: "Row deleted successfully." };
+      if (result.success) {
+        return { success: true, message: "Row deleted successfully." };
+      } else {
+        return { success: false, message: "Failed to delete row." };
+      }
     } else if (connection.type === "postgresql") {
       const pk = {
         [primaryKeyColumn]: primaryKeyValue,

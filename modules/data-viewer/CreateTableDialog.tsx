@@ -35,7 +35,11 @@ export function CreateTableDialog({
       }
     } else {
       const result = await createMysqlTable(connection, table);
-      toast.success("table created");
+      if (result.success) {
+        toast.success(result.success ?? "table created successfully ");
+      } else {
+        toast.error(result.message ?? "failed to create table");
+      }
     }
   };
 
