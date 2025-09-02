@@ -91,7 +91,7 @@ export function ConnectionList({
   }
 
   return (
-    <div className="space-y-3 max-w-[240px] max-h-[400px] overflow-y-scroll ">
+    <div className="space-y-3 max-w-[240px] max-h-[350px] overflow-y-scroll ">
       {connections.map((conn) => {
         const isActive = currentConnectionId === conn.id;
         const isDeleting = deletingId === conn.id;

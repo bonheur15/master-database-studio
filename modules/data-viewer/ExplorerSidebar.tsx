@@ -199,7 +199,7 @@ export function ExplorerSidebar() {
               </div>
 
               {/* Table List */}
-              <div className="flex flex-col gap-1 max-h-[40vh] w-full overflow-auto">
+              <div className="flex flex-col gap-1 max-h-[35vh] w-full overflow-auto">
                 {loadingTables ? (
                   <p className="text-sm text-muted-foreground px-3 py-2">
                     Loading tables...
