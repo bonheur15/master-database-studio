@@ -54,7 +54,7 @@ export function ConnectionList({
       toast.success("Connection Deleted");
 
       if (currentConnectionId === id) {
-        router.push(window.location.pathname); // Use pathname to clear query params
+        router.push(window.location.pathname);
       }
     } catch (error) {
       console.error("Error deleting connection:", error);
@@ -91,14 +91,12 @@ export function ConnectionList({
   }
 
   return (
-    <div className="space-y-3 max-w-[240px] ">
-      {/* this 240px is a mistake and should be corrected in the future */}
+    <div className="space-y-3 max-w-[240px] max-h-[350px] overflow-y-scroll ">
       {connections.map((conn) => {
         const isActive = currentConnectionId === conn.id;
         const isDeleting = deletingId === conn.id;
 
         return (
-          // The parent div is the key. It holds both the link and the delete button as siblings.
           <div key={conn.id} className="relative group w-[100%]">
             <Link
               href={`?connectionId=${conn.id}`}
@@ -149,7 +147,6 @@ export function ConnectionList({
                   </div>
                 </div>
 
-                {/* We reserve space for the button to prevent layout shift */}
                 <div className="flex-shrink-0 ml-2 h-8 w-8" />
               </div>
 
@@ -158,9 +155,6 @@ export function ConnectionList({
               )}
             </Link>
 
-            {/* --- NEW STRUCTURE --- */}
-            {/* The AlertDialog is now a SIBLING to the Link, not a child. */}
-            {/* It is positioned absolutely within the 'relative group' parent. */}
             <div className="absolute top-1/2 right-4 -translate-y-1/2">
               <AlertDialog>
                 <AlertDialogTrigger asChild>

@@ -3,7 +3,6 @@
 import {
   ArrowUpDown,
   EyeOff,
-  ListFilter,
   MoreHorizontal,
   Pencil,
   PlusCircle,
@@ -11,9 +10,11 @@ import {
   Search,
   Trash2,
   X,
+  Table2,
   Check,
   XCircle,
   Database,
+  TableProperties,
 } from "lucide-react";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -41,15 +42,6 @@ import {
 } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -82,157 +74,34 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Switch } from "@/components/ui/switch";
 
-import { Connection, TableSchema, TableColumn } from "@/types/connection";
+import { Connection, TableSchema } from "@/types/connection";
 import { loadConnections } from "@/lib/connection-storage";
-import {
-  getTableData,
-  insertRow,
-  updateRow,
-  deleteRow,
-} from "@/app/actions/data";
+import { getTableData, updateRow, deleteRow } from "@/app/actions/data";
 import dynamic from "next/dynamic";
+import { AddRowDialog } from "./AddRowDialog";
+import AddColumnDialog from "./AddColumn";
 
 const JsonViewer = dynamic(() => import("./JsonViewer"), { ssr: false });
-
-// It's recommended to move AddRowDialog to its own file (e.g., /modules/data-viewer/AddRowDialog.tsx)
-const AddRowDialog = ({
-  isOpen,
-  onClose,
-  schema,
-  connection,
-  tableName,
-  onSuccess,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  schema: TableSchema;
-  connection: Connection;
-  tableName: string;
-  onSuccess: () => void;
-}) => {
-  const [newRowData, setNewRowData] = useState<Record<string, any>>({});
-  const [isSaving, setIsSaving] = useState(false);
-
-  useEffect(() => {
-    if (isOpen) {
-      const initialData: Record<string, any> = {};
-      schema.columns.forEach((col) => {
-        if (col.defaultValue !== null && col.defaultValue !== undefined) {
-          initialData[col.columnName] = col.defaultValue;
-        } else if (col.isNullable) {
-          initialData[col.columnName] = null;
-        } else {
-          // Handle various data types with appropriate defaults
-          switch (col.dataType?.toLowerCase()) {
-            case "int":
-            case "integer":
-            case "bigint":
-            case "float":
-            case "double":
-            case "decimal":
-              initialData[col.columnName] = 0;
-              break;
-            case "boolean":
-            case "bool":
-              initialData[col.columnName] = false;
-              break;
-            default:
-              initialData[col.columnName] = "";
-          }
-        }
-      });
-      setNewRowData(initialData);
-    }
-  }, [isOpen, schema]);
-
-  const handleFieldChange = (columnName: string, value: any) => {
-    setNewRowData((prev) => ({ ...prev, [columnName]: value }));
-  };
-
-  const handleSubmit = async () => {
-    setIsSaving(true);
-    try {
-      const result = await insertRow(connection, tableName, newRowData);
-      if (result.success) {
-        toast.success("Row Added", { description: result.message });
-        onSuccess();
-        onClose();
-      } else {
-        toast.error("Add Row Failed", { description: result.message });
-      }
-    } catch (err) {
-      toast.error("Add Row Error", {
-        description: `An error occurred: ${(err as Error).message}`,
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>Add New Row to &quot;{tableName}&quot;</DialogTitle>
-          <DialogDescription>
-            Fill in the details for the new row.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto pr-4">
-          {schema.columns.map((col) => (
-            <div
-              key={col.columnName}
-              className="grid grid-cols-4 items-center gap-4"
-            >
-              <Label htmlFor={col.columnName} className="text-right">
-                {col.columnName}
-                {!col.isNullable && <span className="text-destructive">*</span>}
-              </Label>
-              <div className="col-span-3">
-                <Input
-                  id={col.columnName}
-                  value={newRowData[col.columnName] ?? ""}
-                  onChange={(e) =>
-                    handleFieldChange(col.columnName, e.target.value)
-                  }
-                  placeholder={col.dataType}
-                  disabled={isSaving}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isSaving}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={isSaving}>
-            {isSaving ? "Saving..." : "Save Row"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
 
 export function TableViewer() {
   const searchParams = useSearchParams();
   const connectionId = searchParams.get("connectionId");
   const tableName = searchParams.get("tableName");
+  const schema = searchParams.get("schema");
 
   const [connection, setConnection] = useState<Connection | null>(null);
-  const [tableData, setTableData] = useState<Record<string, any>[]>([]);
+  const [tableData, setTableData] = useState<Record<string, unknown>[]>([]);
   const [tableSchema, setTableSchema] = useState<TableSchema | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // UI State
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
-  const [editingRowData, setEditingRowData] = useState<Record<string, any>>({});
+  const [editingRowData, setEditingRowData] = useState<Record<string, unknown>>(
+    {}
+  );
   const [isAddRowDialogOpen, setIsAddRowDialogOpen] = useState(false);
   const [deleteAlert, setDeleteAlert] = useState<{
     open: boolean;
@@ -240,7 +109,6 @@ export function TableViewer() {
     isBulk: boolean;
   }>({ open: false, rowIds: [], isBulk: false });
 
-  // Data processing state
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState<{
     key: string;
@@ -266,9 +134,13 @@ export function TableViewer() {
       if (!currentConnection) throw new Error("Connection not found.");
       setConnection(currentConnection);
 
-      const result = await getTableData(currentConnection, tableName);
+      const result = await getTableData(
+        currentConnection,
+        tableName,
+        schema ? schema : undefined
+      );
       if (result.success && result.data) {
-        setTableData(result.data);
+        setTableData(result.data as Record<string, unknown>[]);
         if (result.schema) {
           setTableSchema(result.schema);
           setVisibleColumns(result.schema.columns.map((col) => col.columnName));
@@ -284,7 +156,11 @@ export function TableViewer() {
       setLoading(false);
       setSelectedRows([]);
     }
-  }, [connectionId, tableName]);
+  }, [connectionId, tableName, schema]);
+
+  if (connection) {
+    console.log("hello from table", connection);
+  }
 
   useEffect(() => {
     fetchTableData();
@@ -295,20 +171,6 @@ export function TableViewer() {
       tableSchema?.columns.find((col) => col.columnKey === "PRI")?.columnName,
     [tableSchema]
   );
-
-  const handleSelectAll = (checked: boolean) => {
-    if (!primaryKeyColumn) {
-      toast.info("Cannot select all rows", {
-        description: "Table has no primary key defined.",
-      });
-      return;
-    }
-    setSelectedRows(
-      checked
-        ? processedData.map((row) => row[primaryKeyColumn]?.toString())
-        : []
-    );
-  };
 
   const handleSelectRow = (id: string) => {
     setSelectedRows((prev) =>
@@ -337,8 +199,11 @@ export function TableViewer() {
       filteredData.sort((a, b) => {
         const valA = a[sortConfig.key];
         const valB = b[sortConfig.key];
-        if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
-        if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+        // Convert unknowns to string for comparison
+        const aComp = valA === null || valA === undefined ? "" : String(valA);
+        const bComp = valB === null || valB === undefined ? "" : String(valB);
+        if (aComp < bComp) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aComp > bComp) return sortConfig.direction === "asc" ? 1 : -1;
         return 0;
       });
     }
@@ -352,14 +217,14 @@ export function TableViewer() {
 
   const totalPages = Math.ceil(processedData.length / rowsPerPage);
 
-  const handleEditClick = (row: Record<string, any>) => {
+  const handleEditClick = (row: Record<string, unknown>) => {
     if (!primaryKeyColumn) {
       toast.error("Edit Error", {
         description: "Table has no primary key defined for editing.",
       });
       return;
     }
-    setEditingRowId(row[primaryKeyColumn]?.toString());
+    setEditingRowId(row[primaryKeyColumn]?.toString() ?? null);
     setEditingRowData({ ...row });
   };
 
@@ -372,7 +237,8 @@ export function TableViewer() {
         tableName,
         primaryKeyColumn,
         editingRowId,
-        editingRowData
+        editingRowData,
+        schema ? schema : undefined
       );
       if (result.success) {
         toast.success("Row Updated", { description: result.message });
@@ -403,7 +269,13 @@ export function TableViewer() {
 
     const { rowIds } = deleteAlert;
     const promises = rowIds.map((id) =>
-      deleteRow(connection, tableName, primaryKeyColumn, id)
+      deleteRow(
+        connection,
+        tableName,
+        primaryKeyColumn,
+        id,
+        schema ? schema : undefined
+      )
     );
     const results = await Promise.all(promises);
 
@@ -459,7 +331,7 @@ export function TableViewer() {
   if (!tableName) {
     return (
       <EmptyState
-        icon={Table}
+        icon={Table2}
         title="No Table Selected"
         description="Select a table from the sidebar to view its data."
       />
@@ -494,9 +366,11 @@ export function TableViewer() {
 
   const isAllOnPageSelected =
     paginatedData.length > 0 &&
-    paginatedData.every((row) => selectedRows.includes(row[primaryKeyColumn!]));
+    paginatedData.every((row) =>
+      selectedRows.includes(String(row[primaryKeyColumn!]))
+    );
   const isAnyOnPageSelected = paginatedData.some((row) =>
-    selectedRows.includes(row[primaryKeyColumn!])
+    selectedRows.includes(String(row[primaryKeyColumn!]))
   );
 
   return (
@@ -566,6 +440,16 @@ export function TableViewer() {
             >
               <PlusCircle className="h-4 w-4" /> Add Row
             </Button>
+            {connection ? (
+              <AddColumnDialog
+                connection={connection}
+                dialect={connection.type}
+                tableName={tableName}
+                schema={schema ? schema : undefined}
+              />
+            ) : (
+              ""
+            )}
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -598,7 +482,12 @@ export function TableViewer() {
                       );
                       if (checked) {
                         setSelectedRows((prev) => [
-                          ...new Set([...prev, ...pageIds]),
+                          ...Array.from(
+                            new Set<string>([
+                              ...prev,
+                              ...pageIds.map((id) => String(id)),
+                            ])
+                          ),
                         ]);
                       } else {
                         setSelectedRows((prev) =>
@@ -647,12 +536,12 @@ export function TableViewer() {
                 return (
                   <TableRow
                     key={rowId}
-                    data-state={selectedRows.includes(rowId) && "selected"}
+                    data-state={selectedRows.includes(rowId!) && "selected"}
                   >
                     <TableCell>
                       <Checkbox
-                        checked={selectedRows.includes(rowId)}
-                        onCheckedChange={() => handleSelectRow(rowId)}
+                        checked={selectedRows.includes(rowId!)}
+                        onCheckedChange={() => handleSelectRow(rowId!)}
                         aria-label={`Select row ${rowId}`}
                       />
                     </TableCell>
@@ -665,7 +554,17 @@ export function TableViewer() {
                         >
                           {editingRowId === rowId ? (
                             <Input
-                              value={editingRowData[col.columnName] ?? ""}
+                              value={
+                                typeof editingRowData[col.columnName] ===
+                                  "object" &&
+                                editingRowData[col.columnName] !== null
+                                  ? JSON.stringify(
+                                      editingRowData[col.columnName]
+                                    )
+                                  : editingRowData[col.columnName] !== undefined
+                                  ? String(editingRowData[col.columnName])
+                                  : ""
+                              }
                               onChange={(e) =>
                                 setEditingRowData((prev) => ({
                                   ...prev,
@@ -716,7 +615,7 @@ export function TableViewer() {
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                              onClick={() => handleDeleteRequest([rowId])}
+                              onClick={() => handleDeleteRequest([rowId!])}
                             >
                               <Trash2 className="mr-2 h-4 w-4" /> Delete Row
                             </DropdownMenuItem>
@@ -791,6 +690,7 @@ export function TableViewer() {
           connection={connection}
           tableName={tableName!}
           onSuccess={fetchTableData}
+          Schema={schema ? schema : undefined}
         />
       )}
 

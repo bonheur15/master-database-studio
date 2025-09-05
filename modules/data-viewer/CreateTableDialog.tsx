@@ -1,3 +1,6 @@
+"use client";
+import { createMysqlTable } from "@/app/actions/mysql";
+import { createTable } from "@/app/actions/postgres";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -9,35 +12,75 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { PlusIcon, Table } from "lucide-react";
 
-export function CreateTableDialog() {
+import { Connection } from "@/types/connection";
+import { useState } from "react";
+import { toast } from "sonner";
+
+export function CreateTableDialog({
+  connection,
+  schema,
+}: {
+  connection: Connection;
+  schema?: string;
+}) {
+  const [table, setTable] = useState<string>("");
+  const handleSubmit = async () => {
+    if (connection.type === "postgresql") {
+      const result = await createTable(connection, table, schema);
+      if (result.success) {
+        toast.success(result.message ?? "Table create successfully");
+      } else {
+        toast.error(result.message ?? "failed to create table");
+      }
+    } else {
+      const result = await createMysqlTable(connection, table);
+      if (result.success) {
+        toast.success(result.success ?? "table created successfully ");
+      } else {
+        toast.error(result.message ?? "failed to create table");
+      }
+    }
+  };
+
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button className="flex items-center gap-3 ">
-          <PlusIcon className="h-4 w-4" />
-          Create New Table
-        </Button>
+        <div className="cursor-pointer hover:bg-primary/10 p-2 rounded-md">
+          Add table
+        </div>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Create New Table</DialogTitle>
+          <DialogTitle className="text-sm">
+            Create Table{" "}
+            {schema ? (
+              <span>
+                {" "}
+                to <span className="text-red-500">{schema}</span> schema
+              </span>
+            ) : (
+              ""
+            )}
+          </DialogTitle>
           <DialogDescription>
             Enter the name for your new table.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="tableName" className="text-right">
-              Table Name
-            </Label>
-            <Input id="tableName" value="" className="col-span-3" />
+          <div className="  items-center gap-4">
+            <Input
+              id="tableName"
+              value={table}
+              className="col-span-3"
+              onChange={(e) => setTable(e.target.value)}
+            />
           </div>
         </div>
         <DialogFooter>
-          <Button type="submit">Create Table</Button>
+          <Button type="submit" onClick={handleSubmit}>
+            Create Table
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

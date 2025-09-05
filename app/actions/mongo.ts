@@ -1,22 +1,14 @@
+"use server";
+
 import { mgConnector } from "@/lib/adapters/mongo";
-import { mongoConfig } from "@/types/connection";
+import { Connection } from "@/types/connection";
 import { ObjectId } from "mongodb";
 
-export async function getCollections({
-  configs,
-  url,
-  dbName,
-}: {
-  configs?: mongoConfig;
-  url?: string;
-  dbName?: string;
-}) {
-  const client = await mgConnector({
-    configs,
-    url,
-  });
+export async function getCollections(connection: Connection) {
+  console.log("confs", connection);
+  const client = await mgConnector(connection);
 
-  const database = client.db(configs?.database || dbName);
+  const database = client.db(connection.database);
 
   const collections = [];
   const colls = database.listCollections({}, { nameOnly: true });
@@ -32,26 +24,19 @@ export async function getCollections({
     });
   }
 
-  return collections;
+  return { success: true, tables: collections };
 }
 
 export async function deleteCollections({
   collection,
-  configs,
-  url,
-  dbName,
+  connection,
 }: {
   collection: string;
-  configs?: mongoConfig;
-  url?: string;
-  dbName?: string;
+  connection: Connection;
 }) {
-  const client = await mgConnector({
-    configs,
-    url,
-  });
+  const client = await mgConnector(connection);
 
-  const database = client.db(configs?.database || dbName);
+  const database = client.db(connection.database);
   const collectionToDelete = database.collection(collection);
   await collectionToDelete.drop();
 
@@ -61,68 +46,44 @@ export async function deleteCollections({
 export async function getCollectionDocs({
   collection,
   page = 1,
-  pagesize = 20,
-  configs,
-  url,
-  dbName,
+  pagesize = 10,
+  connection,
 }: {
   collection: string;
   page?: number;
   pagesize?: number;
-  configs?: mongoConfig;
-  url?: string;
-  dbName?: string;
+  connection: Connection;
 }) {
-  const client = await mgConnector({
-    configs,
-    url,
-  });
+  const client = await mgConnector(connection);
 
   const offset = (page - 1) * pagesize;
-  const database = client.db(configs?.database || dbName);
+  const database = client.db(connection.database);
   const col = database.collection(collection);
   const docs = await col.find().skip(offset).limit(pagesize).toArray();
   return JSON.parse(JSON.stringify(docs));
 }
 
-export async function insertDoc({
-  collectionName,
-  document,
-  configs,
-  url,
-  dbName,
-}: {
-  collectionName: string;
-  document: Record<string, unknown>;
-  configs?: mongoConfig;
-  url?: string;
-  dbName?: string;
-}) {
-  const client = await mgConnector({ configs, url });
-  const db = client.db(configs?.database || dbName);
+export async function insertDoc(
+  collectionName: string,
+  document: Record<string, unknown>,
+  connection: Connection
+) {
+  const client = await mgConnector(connection);
+  const db = client.db(connection.database);
   const col = db.collection(collectionName);
 
   const result = await col.insertOne(document);
   return result;
 }
 
-export async function updateDoc({
-  collectionName,
-  id,
-  update,
-  configs,
-  url,
-  dbName,
-}: {
-  collectionName: string;
-  id: string;
-  update: Record<string, unknown>;
-  configs?: mongoConfig;
-  url?: string;
-  dbName?: string;
-}) {
-  const client = await mgConnector({ configs, url });
-  const db = client.db(configs?.database || dbName);
+export async function updateDoc(
+  collectionName: string,
+  id: string,
+  update: Record<string, unknown>,
+  connection: Connection
+) {
+  const client = await mgConnector(connection);
+  const db = client.db(connection.database);
   const col = db.collection(collectionName);
 
   const result = await col.updateOne(
@@ -131,4 +92,31 @@ export async function updateDoc({
   );
 
   return result;
+}
+
+export async function deleteDoc(
+  collectionName: string,
+  id: string,
+  connection: Connection
+) {
+  const client = await mgConnector(connection);
+  const db = client.db(connection.database);
+  const col = db.collection(collectionName);
+
+  await col.deleteOne({
+    _id: new ObjectId(id),
+  });
+  return { success: true };
+}
+
+export async function createCollection(
+  collectionName: string,
+  connection: Connection
+) {
+  const client = await mgConnector(connection);
+  const db = client.db(connection.database);
+
+  await db.createCollection(collectionName);
+
+  return { success: true };
 }

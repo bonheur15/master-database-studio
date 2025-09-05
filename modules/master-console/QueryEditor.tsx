@@ -6,15 +6,7 @@ import { highlight, languages } from "prismjs/components/prism-core";
 import "prismjs/components/prism-sql";
 import "prismjs/themes/prism-tomorrow.css";
 import { format } from "sql-formatter";
-import {
-  History,
-  Play,
-  Sparkles,
-  X,
-  FileDown,
-  PlusCircle,
-  Loader,
-} from "lucide-react";
+import { Play, Sparkles, X, PlusCircle, Loader, History } from "lucide-react";
 import * as React from "react";
 
 import { Button } from "@/components/ui/button";
@@ -26,19 +18,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
@@ -54,11 +34,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-} from "@/components/ui/resizable";
-import {
   Table,
   TableBody,
   TableCell,
@@ -66,11 +41,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { useConnection } from "@/hooks/use-connection";
 import { executeQuery } from "@/app/actions/query";
 import { Connection } from "@/types/connection";
 import { loadConnections } from "@/lib/connection-storage";
 import { useSearchParams } from "next/navigation";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 
 const initialTabs = [
   { id: "tab1", name: "Query 1", query: "SELECT * FROM users;" },
@@ -209,9 +190,6 @@ export function QueryEditor() {
               <SelectContent>
                 <SelectItem value="postgresql">PostgreSQL</SelectItem>
                 <SelectItem value="mysql">MySQL</SelectItem>
-                <SelectItem value="mongodb" disabled>
-                  MongoDB
-                </SelectItem>
               </SelectContent>
             </Select>
             <Tooltip>
@@ -229,6 +207,7 @@ export function QueryEditor() {
               </TooltipContent>
             </Tooltip>
 
+            {/* to do a querry hostory*/}
             <Sheet>
               <SheetTrigger asChild>
                 <Button variant="outline" size="icon">
@@ -258,7 +237,8 @@ export function QueryEditor() {
               </SheetContent>
             </Sheet>
 
-            <DropdownMenu>
+            {/* export query*/}
+            {/* <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="icon">
                   <FileDown className="h-4 w-4" />
@@ -268,7 +248,7 @@ export function QueryEditor() {
                 <DropdownMenuItem>Export as CSV</DropdownMenuItem>
                 <DropdownMenuItem>Export as JSON</DropdownMenuItem>
               </DropdownMenuContent>
-            </DropdownMenu>
+            </DropdownMenu> */}
 
             <Button
               className="gap-x-2"
@@ -290,13 +270,13 @@ export function QueryEditor() {
             onValueChange={setActiveTabId}
             className="flex-1 flex flex-col h-full"
           >
-            <div className="px-4">
-              <TabsList className="h-auto">
+            <div className="px-4 max-w-2xl overflow-x-auto ">
+              <TabsList className="h-auto ">
                 {tabs.map((tab) => (
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
-                    className="h-auto p-0"
+                    className="h-auto p-0 inline-flex"
                     asChild
                   >
                     <div className="flex items-center gap-2 px-3 py-1.5">

@@ -4,7 +4,7 @@ import React, { useEffect } from "react";
 import JsonView from "@microlink/react-json-view";
 
 interface JsonViewerProps {
-  data: any;
+  data: unknown;
 }
 
 const JsonViewer: React.FC<JsonViewerProps> = ({ data }) => {
@@ -16,8 +16,7 @@ const JsonViewer: React.FC<JsonViewerProps> = ({ data }) => {
     <div className="h-full w-full bg-white dark:bg-gray-900 text-black dark:text-white">
       {mounted && (
         <JsonView
-          src={data}
-          // theme="atom"
+          src={data as object}
           iconStyle="square"
           displayDataTypes={false}
           displayObjectSize={false}

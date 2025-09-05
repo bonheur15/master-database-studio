@@ -1,5 +1,4 @@
-// components/landing/FeaturesSection.tsx
-"use client"; // Required for framer-motion animations
+"use client";
 
 import { motion } from "framer-motion";
 import { ShieldCheck, Database, TerminalSquare, Share2 } from "lucide-react";
@@ -53,13 +52,14 @@ export function FeaturesSection() {
   return (
     <section
       id="features"
-      className="bg-white py-24 dark:bg-gray-950/50 sm:py-32"
+      className="bg-white py-12 dark:bg-gray-950/50 md:py-0 md:mb-20"
     >
       <div className="container mx-auto max-w-6xl px-4">
         <div className="mx-auto max-w-2xl text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-50 sm:text-4xl">
+          <h2 className=" font-bold tracking-tight text-gray-900 dark:text-gray-50 text-4xl">
             Everything You Need to Manage Data
           </h2>
+
           <p className="mt-6 text-lg leading-8 text-gray-600 dark:text-gray-300">
             From Browse tables to writing complex queries, Master DB Studio
             streamlines your workflow.

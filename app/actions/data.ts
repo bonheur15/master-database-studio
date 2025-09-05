@@ -1,8 +1,25 @@
 "use server";
 
-import mysql from "mysql2/promise";
-import { Connection, TableSchema, TableColumn } from "@/types/connection";
-import { getCollectionDocs } from "./mongo";
+import {
+  Connection,
+  TableSchema,
+  TableColumn,
+  CrudResult,
+} from "@/types/connection";
+import { deleteDoc, getCollectionDocs, insertDoc, updateDoc } from "./mongo";
+import {
+  deleteData,
+  getTableColumns,
+  getTableDatas,
+  insertDatas,
+  updateData,
+} from "./postgres";
+import {
+  deleteMysqlRow,
+  getMysqlData,
+  insertMysqlRaw,
+  updateMysqlRow,
+} from "./mysql";
 
 interface GetTableDataResult {
   success: boolean;
@@ -13,120 +30,51 @@ interface GetTableDataResult {
 
 export async function getTableData(
   connection: Connection,
-  tableName: string
+  tableName: string,
+  Schema?: string
 ): Promise<GetTableDataResult> {
-  console.log("Fetching table data:", tableName, connection);
   try {
     if (connection.type === "mysql") {
-      const mysqlConnection = await mysql.createConnection({
-        host: connection.host,
-        port: connection.port,
-        user: connection.user,
-        password: connection.password,
-        database: connection.database,
-      });
+      return await getMysqlData(connection, tableName);
+    } else if (connection.type === "postgresql") {
+      const result = await getTableColumns(connection, tableName, Schema);
 
-      // Get schema
-      const [schemaRows] = await mysqlConnection.execute(
-        `SHOW COLUMNS FROM \`${tableName}\``
-      );
-      interface MySQLSchemaRow {
-        Field: string;
-        Type: string;
-        Null: string;
-        Key: string;
-        Default: string | null;
-        Extra: string;
+      if (!result.success || !result.columns) {
+        throw new Error(result.message ?? "Failed to fetch columns");
       }
 
-      const columns: TableColumn[] = (schemaRows as MySQLSchemaRow[]).map(
-        (row) => ({
-          columnName: row.Field,
-          dataType: row.Type,
-          isNullable: row.Null === "YES",
-          columnKey: row.Key,
-          defaultValue: row.Default,
-          extra: row.Extra,
-        })
-      );
-      const schema: TableSchema = { tableName, columns };
-
-      // Get data
-      const [dataRows] = await mysqlConnection.execute(
-        `SELECT * FROM \`${tableName}\``
-      );
-      await mysqlConnection.end();
-
-      return {
-        success: true,
-        data: dataRows as Record<string, unknown>[],
-        schema,
-      };
-    } else if (connection.type === "postgresql") {
-      const pgClient = new PgClient({
-        host: connection.host,
-        port: connection.port,
-        user: connection.user,
-        password: connection.password,
-        database: connection.database,
-      });
-      await pgClient.connect();
-
-      // Get schema
-      const schemaQuery = `
-        SELECT column_name, data_type, is_nullable, column_default
-        FROM information_schema.columns
-        WHERE table_schema = current_schema() AND table_name = $1
-        ORDER BY ordinal_position;
-      `;
-      const schemaResult = await pgClient.query(schemaQuery, [tableName]);
-      const columns: TableColumn[] = schemaResult.rows.map((row) => ({
-        columnName: row.column_name,
-        dataType: row.data_type,
-        isNullable: row.is_nullable === "YES",
-        columnKey: "",
-        defaultValue: row.column_default,
+      const columns: TableColumn[] = result.columns.map((col) => ({
+        columnName: col.column_name,
+        dataType: col.data_type,
+        isNullable: col.is_nullable === "YES",
+        columnKey:
+          col.constraint_type === "PRIMARY KEY"
+            ? "PRI"
+            : col.constraint_type || "",
+        defaultValue: col.column_default,
         extra: "",
       }));
 
-      const pkQuery = `
-        SELECT a.attname
-        FROM pg_index i
-        JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey)
-        WHERE i.indrelid = $1::regclass AND i.indisprimary;
-      `;
-      const pkResult = await pgClient.query(pkQuery, [tableName]);
-      const primaryKeys = pkResult.rows.map((row) => row.attname);
-
-      columns.forEach((col) => {
-        if (primaryKeys.includes(col.columnName)) {
-          col.columnKey = "PRI";
-        }
-      });
-
       const schema: TableSchema = { tableName, columns };
 
-      // Get data
-      const dataResult = await pgClient.query(`SELECT * FROM "${tableName}"`);
-      await pgClient.end();
+      const dataResult = await getTableDatas({
+        connection,
+        tableName,
+        schema: Schema,
+        limit: 20,
+        page: 1,
+      });
+
+      if (!dataResult.success || !dataResult.rows) {
+        throw new Error(dataResult.message ?? "Failed to fetch table data");
+      }
 
       return { success: true, data: dataResult.rows, schema };
     } else if (connection.type === "mongodb") {
-      console.log("MongoDB connection details:", tableName, connection);
-      let mongoUri: string;
-      if (connection.protocol === "mongodb+srv") {
-        mongoUri = `mongodb+srv://${connection.user}:${connection.password}@${connection.host}/${connection.database}?retryWrites=true&w=majority&appName=Cluster0`;
-      } else {
-        mongoUri = `mongodb://${connection.user}:${connection.password}@${connection.host}:${connection.port}/${connection.database}`;
-      }
-
       try {
         const data = await getCollectionDocs({
           collection: tableName,
-          page: 1,
-          url: mongoUri,
-          pagesize: 10,
-          dbName: connection.database,
+          connection,
         });
         return {
           success: true,
@@ -153,55 +101,35 @@ export async function getTableData(
   }
 }
 
-interface CrudResult {
-  success: boolean;
-  message?: string;
-}
-
 export async function insertRow(
   connection: Connection,
   tableName: string,
-  rowData: Record<string, unknown>
+  rowData: Record<string, unknown>,
+  schema?: string
 ): Promise<CrudResult> {
   try {
     if (connection.type === "mysql") {
-      const mysqlConnection = await mysql.createConnection({
-        host: connection.host,
-        port: connection.port,
-        user: connection.user,
-        password: connection.password,
-        database: connection.database,
-      });
-
-      const columns = Object.keys(rowData);
-      const values = Object.values(rowData);
-      const placeholders = columns.map(() => "?").join(", ");
-
-      const query = `INSERT INTO \`${tableName}\` (\`${columns.join(
-        "`, `"
-      )}\`) VALUES (${placeholders})`;
-      await mysqlConnection.execute(query, values);
-      await mysqlConnection.end();
-      return { success: true, message: "Row inserted successfully." };
+      const result = await insertMysqlRaw(connection, tableName, rowData);
+      if (result.success) {
+        return { success: true, message: "Row inserted successfully." };
+      } else {
+        return { success: false, message: "failed to insert row." };
+      }
     } else if (connection.type === "postgresql") {
-      const pgClient = new PgClient({
-        host: connection.host,
-        port: connection.port,
-        user: connection.user,
-        password: connection.password,
-        database: connection.database,
-      });
-      await pgClient.connect();
+      const insertResult = await insertDatas(
+        connection,
+        tableName,
+        rowData,
+        schema
+      );
 
-      const columns = Object.keys(rowData);
-      const values = Object.values(rowData);
-      const placeholders = columns.map((_, i) => `$${i + 1}`).join(", ");
+      if (!insertResult.success) {
+        throw new Error(insertResult.message ?? "Failed to insert row");
+      }
 
-      const query = `INSERT INTO \"${tableName}\" (\"${columns.join(
-        '", "'
-      )}\") VALUES (${placeholders})`;
-      await pgClient.query(query, values);
-      await pgClient.end();
+      return { success: true, message: "Row inserted successfully." };
+    } else if (connection.type === "mongodb") {
+      await insertDoc(tableName, rowData, connection);
       return { success: true, message: "Row inserted successfully." };
     } else {
       return { success: false, message: "Unsupported database type." };
@@ -219,47 +147,49 @@ export async function updateRow(
   connection: Connection,
   tableName: string,
   primaryKeyColumn: string,
-  primaryKeyValue: string | number | null,
-  rowData: Record<string, unknown>
+  primaryKeyValue: string | number,
+  rowData: Record<string, unknown>,
+  schema?: string
 ): Promise<CrudResult> {
   try {
     if (connection.type === "mysql") {
-      const mysqlConnection = await mysql.createConnection({
-        host: connection.host,
-        port: connection.port,
-        user: connection.user,
-        password: connection.password,
-        database: connection.database,
-      });
-
-      const updates = Object.keys(rowData)
-        .map((col) => `\`${col}\` = ?`)
-        .join(", ");
-      const values = [...Object.values(rowData), primaryKeyValue];
-
-      const query = `UPDATE \`${tableName}\` SET ${updates} WHERE \`${primaryKeyColumn}\` = ?`;
-      await mysqlConnection.execute(query, values);
-      await mysqlConnection.end();
-      return { success: true, message: "Row updated successfully." };
+      const result = await updateMysqlRow(
+        connection,
+        tableName,
+        primaryKeyColumn,
+        primaryKeyValue,
+        rowData
+      );
+      if (result.success) {
+        return { success: true, message: "Row updated successfully." };
+      } else {
+        return {
+          success: false,
+          message: result.message ?? "failed to update row.",
+        };
+      }
     } else if (connection.type === "postgresql") {
-      const pgClient = new PgClient({
-        host: connection.host,
-        port: connection.port,
-        user: connection.user,
-        password: connection.password,
-        database: connection.database,
-      });
-      await pgClient.connect();
-
-      const updates = Object.keys(rowData)
-        .map((col, i) => `\"${col}\" = $${i + 1}`)
-        .join(", ");
-      const values = [...Object.values(rowData), primaryKeyValue];
-      const pkIndex = Object.keys(rowData).length + 1;
-
-      const query = `UPDATE \"${tableName}\" SET ${updates} WHERE \"${primaryKeyColumn}\" = $${pkIndex}`;
-      await pgClient.query(query, values);
-      await pgClient.end();
+      const pk = {
+        [primaryKeyColumn]: primaryKeyValue,
+      };
+      const result = await updateData(
+        connection,
+        tableName,
+        pk,
+        rowData,
+        schema
+      );
+      if (!result.success) {
+        throw new Error(result.message ?? "Failed to update row");
+      }
+      return { success: true, message: "Row updated successfully." };
+    } else if (connection.type === "mongodb") {
+      await updateDoc(
+        tableName,
+        primaryKeyValue?.toString(),
+        rowData,
+        connection
+      );
       return { success: true, message: "Row updated successfully." };
     } else {
       return { success: false, message: "Unsupported database type." };
@@ -277,35 +207,34 @@ export async function deleteRow(
   connection: Connection,
   tableName: string,
   primaryKeyColumn: string,
-  primaryKeyValue: string | number | null
+  primaryKeyValue: string | number,
+  schema?: string
 ): Promise<CrudResult> {
   try {
     if (connection.type === "mysql") {
-      const mysqlConnection = await mysql.createConnection({
-        host: connection.host,
-        port: connection.port,
-        user: connection.user,
-        password: connection.password,
-        database: connection.database,
-      });
-
-      const query = `DELETE FROM \`${tableName}\` WHERE \`${primaryKeyColumn}\` = ?`;
-      await mysqlConnection.execute(query, [primaryKeyValue]);
-      await mysqlConnection.end();
-      return { success: true, message: "Row deleted successfully." };
+      const result = await deleteMysqlRow(
+        connection,
+        tableName,
+        primaryKeyColumn,
+        primaryKeyValue
+      );
+      if (result.success) {
+        return { success: true, message: "Row deleted successfully." };
+      } else {
+        return { success: false, message: "Failed to delete row." };
+      }
     } else if (connection.type === "postgresql") {
-      const pgClient = new PgClient({
-        host: connection.host,
-        port: connection.port,
-        user: connection.user,
-        password: connection.password,
-        database: connection.database,
-      });
-      await pgClient.connect();
+      const pk = {
+        [primaryKeyColumn]: primaryKeyValue,
+      };
+      const deleteResult = await deleteData(connection, tableName, pk, schema);
+      if (!deleteResult.success) {
+        throw new Error(deleteResult.message ?? "failed to delete row");
+      }
 
-      const query = `DELETE FROM \"${tableName}\" WHERE \"${primaryKeyColumn}\" = $1`;
-      await pgClient.query(query, [primaryKeyValue]);
-      await pgClient.end();
+      return { success: true, message: "Row deleted successfully." };
+    } else if (connection.type === "mongodb") {
+      await deleteDoc(tableName, primaryKeyValue?.toString(), connection);
       return { success: true, message: "Row deleted successfully." };
     } else {
       return { success: false, message: "Unsupported database type." };

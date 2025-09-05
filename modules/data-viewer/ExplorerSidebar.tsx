@@ -1,113 +1,192 @@
-import { Database, PlusCircle, Search, Table } from "lucide-react";
-import React, { useState, useEffect } from "react";
-import { cn } from "@/lib/utils"; // Make sure you have a cn utility
-import { useSearchParams, useRouter } from "next/navigation";
+"use client";
+import { Search, Table } from "lucide-react";
+import React, { useState, useEffect, useMemo } from "react";
+import { cn } from "@/lib/utils";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
-  AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { CreateTableDialog } from "./CreateTableDialog";
+
 import { ConnectForm } from "../connection/ConnectForm";
 import { QueryEditorDialog } from "../master-console/QueryEditorDialog";
 import { ConnectionList } from "../connection/ConnectionList";
-import { getMongoTables, getMysqlTables } from "@/app/actions/tables";
+import { getMysqlTables } from "@/app/actions/tables";
 import { loadConnections } from "@/lib/connection-storage";
 import Link from "next/link";
+import { getPgTableNames, getSchemas } from "@/app/actions/postgres";
+import { getCollections } from "@/app/actions/mongo";
+
+import SchemaOptions from "./SchemaOptions";
+import { Connection } from "@/types/connection";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectValue,
+} from "@/components/ui/select";
+import { SelectTrigger } from "@radix-ui/react-select";
 
 export function ExplorerSidebar() {
   const searchParams = useSearchParams();
-  const router = useRouter();
   const connectionId = searchParams.get("connectionId");
   const tableName = searchParams.get("table");
 
-  const [activeTable, setActiveTable] = useState(tableName || "");
-  useEffect(() => {
-    if (tableName) {
-      setActiveTable(tableName);
-    }
-  }, [tableName]);
+  const [connected, setConnected] = useState<Connection | undefined>();
+  const [schemas, setSchemas] = useState<string[]>([]);
+  const [selectedSchema, setSelectedSchema] = useState<string>();
   const [tables, setTables] = useState<{ name: string; count: number }[]>([]);
+  const [activeTable, setActiveTable] = useState(tableName || "");
   const [loadingTables, setLoadingTables] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
 
+  // Filter tables efficiently
+  const filteredTables = useMemo(() => {
+    return tables.filter((t) =>
+      t.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [tables, searchTerm]);
+
+  // Load connection whenever connectionId changes
   useEffect(() => {
-    const fetchTables = async () => {
-      if (connectionId) {
-        setLoadingTables(true);
-        const connections = await loadConnections();
-        const currentConnection = connections.find(
-          (conn) => conn.id === connectionId
-        );
+    if (!connectionId) {
+      setConnected(undefined);
+      setSchemas([]);
+      setSelectedSchema(undefined);
+      setTables([]);
+      return;
+    }
 
-        if (currentConnection) {
-          let result: {
-            success: boolean;
-            tables?: { name: string; count: number }[];
-            message?: string;
-          } = { success: false, message: "Connection type not supported." };
-          if (currentConnection.type === "mysql") {
-            result = await getMysqlTables(currentConnection);
-          }
-          if (currentConnection.type === "mongodb") {
-            result = await getMongoTables(currentConnection);
-          }
-          if (result.success && result.tables) {
-            setTables(result.tables);
-            if (result.tables.length > 0 && !tableName) {
-              setActiveTable(result.tables[0].name);
-            }
-          } else {
-            toast.error("Failed to load tables", {
-              description: result.message || "An unknown error occurred.",
-            });
-            setTables([]);
-          }
-        } else {
-          toast.error("Connection not found", {
-            description: "The selected connection could not be found.",
-          });
-          setTables([]);
-        }
-        setLoadingTables(false);
+    const loadConnection = async () => {
+      const connections = await loadConnections();
+      const conn = connections.find((c) => c.id === connectionId);
+      if (!conn) {
+        toast.error("Connection not found", {
+          description: "The selected connection could not be found.",
+        });
+        setConnected(undefined);
+        return;
+      }
+      setConnected(conn);
+    };
+
+    loadConnection();
+  }, [connectionId]);
+
+  // Load schemas if PostgreSQL
+  useEffect(() => {
+    if (!connected || connected.type !== "postgresql") {
+      setSchemas([]);
+      setSelectedSchema(undefined);
+      return;
+    }
+
+    const fetchSchemas = async () => {
+      const schema = await getSchemas(connected);
+      if (schema.success && schema.schemas && schema.schemas.length > 0) {
+        setSchemas(schema.schemas);
+        setSelectedSchema(schema.schemas[0]);
       } else {
-        setTables([]);
+        setSchemas([]);
+        setSelectedSchema(undefined);
       }
     };
+
+    fetchSchemas();
+  }, [connected]);
+
+  // Load tables whenever connection or schema changes
+  useEffect(() => {
+    if (!connected) {
+      setTables([]);
+      return;
+    }
+    const fetchTables = async () => {
+      setLoadingTables(true);
+      let result: {
+        success: boolean;
+        tables?: { name: string; count: number }[];
+        message?: string;
+      } = { success: false, message: "Connection type not supported." };
+      if (connected.type === "mysql") {
+        result = await getMysqlTables(connected);
+      }
+      if (connected.type === "mongodb") {
+        result = await getCollections(connected);
+      }
+      if (connected.type === "postgresql") {
+        result = await getPgTableNames(connected, selectedSchema);
+      }
+      if (result.success && result.tables) {
+        setTables(result.tables);
+        setActiveTable(result.tables[0]?.name || "");
+      } else {
+        toast.error("Failed to load tables", {
+          description: result.message || "An unknown error occurred.",
+        });
+        setTables([]);
+      }
+      setLoadingTables(false);
+    };
+
     fetchTables();
-  }, [connectionId, tableName]);
+  }, [connected, selectedSchema]);
 
   return (
-    <div className="flex h-full flex-col gap-4 px-2 py-4 w-[100%]">
+    <div className="flex h-full flex-col gap-4 px-2 py-4 w-full">
       {/* --- Connections Section --- */}
-      <div className="w-[100%]">
+      <div className="w-full">
         <h3 className="mb-2 px-4 text-xs font-semibold tracking-wider uppercase text-muted-foreground">
-          Connections
+          Connections {selectedSchema}
         </h3>
-        <nav className="grid gap-1 w-[100%]">
+        <nav className="grid gap-1 w-full">
           <ConnectionList currentConnectionId={connectionId ?? ""} />
           <ConnectForm />
         </nav>
       </div>
 
-      {/* --- Tables Section (Collapsible) --- */}
+      {/* --- Tables Section --- */}
       <Accordion
         type="single"
         collapsible
         defaultValue="item-1"
-        className="w-full h-[100%] "
+        className="w-full h-full"
       >
-        <AccordionItem value="item-1" className="border-b-0 h-[100%]">
-          <AccordionTrigger className="px-3 py-2 text-xs font-semibold tracking-wider uppercase text-muted-foreground hover:no-underline">
-            <div className="flex-1 text-left">Tables</div>
-          </AccordionTrigger>
-          <AccordionContent className="pt-1 h-[100%]">
-            <div className="flex flex-col gap-2 px-1 h-[100%]">
+        <AccordionItem value="item-1" className="border-b-0 h-full">
+          <div className="px-3 py-2 text-xs font-semibold flex justify-between tracking-wider uppercase text-muted-foreground hover:no-underline">
+            {connected?.type === "postgresql" ? (
+              <Select value={selectedSchema} onValueChange={setSelectedSchema}>
+                <SelectTrigger className="w-[180px] focus:outline-none">
+                  <div className="w-full border border-gray-400/50 p-2 rounded-md">
+                    <SelectValue placeholder="Select schema" />
+                  </div>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {schemas.map((schema, i) => (
+                      <SelectItem value={schema} key={i}>
+                        {schema}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            ) : (
+              <div>tables</div>
+            )}
+            {connected && (
+              <SchemaOptions connection={connected} schema={selectedSchema} />
+            )}
+          </div>
+
+          <AccordionContent className="pt-1 h-full">
+            <div className="flex flex-col gap-2 px-1 h-full">
               {/* Search Bar */}
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -115,29 +194,29 @@ export function ExplorerSidebar() {
                   type="search"
                   placeholder="Search tables..."
                   className="w-full rounded-lg bg-background pl-8"
+                  onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
 
-              {/* Create Table Button */}
-              {/* <CreateTableDialog /> */}
-
               {/* Table List */}
-              <div className="flex flex-col gap-1 max-h-[40vh] w-[100%] overflow-auto">
+              <div className="flex flex-col gap-1 max-h-[35vh] w-full overflow-auto">
                 {loadingTables ? (
                   <p className="text-sm text-muted-foreground px-3 py-2">
                     Loading tables...
                   </p>
-                ) : tables.length === 0 ? (
+                ) : filteredTables.length === 0 ? (
                   <p className="text-sm text-muted-foreground px-3 py-2">
                     {connectionId
                       ? "No tables found"
                       : "Select a connection to view tables."}
                   </p>
                 ) : (
-                  tables.map((table) => (
+                  filteredTables.map((table) => (
                     <Link
                       key={table.name}
-                      href={`/studio?connectionId=${connectionId}&tableName=${table.name}`}
+                      href={`/studio?connectionId=${connectionId}&tableName=${
+                        table.name
+                      }${selectedSchema ? `&schema=${selectedSchema}` : ""}`}
                       onClick={() => setActiveTable(table.name)}
                       className={cn(
                         "flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-muted/50 hover:text-foreground",
@@ -164,6 +243,7 @@ export function ExplorerSidebar() {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+
       <QueryEditorDialog />
     </div>
   );
