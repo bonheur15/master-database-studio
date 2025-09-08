@@ -22,7 +22,7 @@ export async function getMysqlData(
   connection: Connection,
   tableName: string,
   page: number = 1,
-  pageSize: number = 2
+  pageSize: number = 20
 ): Promise<{
   success: boolean;
   data?: Record<string, unknown>[];

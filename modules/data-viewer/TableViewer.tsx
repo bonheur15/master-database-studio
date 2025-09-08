@@ -98,6 +98,8 @@ export function TableViewer() {
   const [error, setError] = useState<string | null>(null);
   const [totalPages, setTotalPages] = useState<number | undefined>();
 
+  console.log("one of", totalPages);
+
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
@@ -140,7 +142,8 @@ export function TableViewer() {
         currentConnection,
         tableName,
         schema ? schema : undefined,
-        currentPage
+        currentPage,
+        rowsPerPage
       );
       if (result.success && result.data) {
         setTableData(result.data as Record<string, unknown>[]);
@@ -161,7 +164,7 @@ export function TableViewer() {
       setLoading(false);
       setSelectedRows([]);
     }
-  }, [connectionId, tableName, schema, currentPage]);
+  }, [connectionId, tableName, schema, currentPage, rowsPerPage]);
 
   if (connection) {
     console.log("hello from table", connection);

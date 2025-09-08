@@ -271,16 +271,16 @@ export async function getTableDatas({
       return { success: false, message: "Invalid schema name" };
     }
 
-    // build qualified table name (safe because of regex check)
     const fullTableName = schema
       ? `"${schema}"."${tableName}"`
       : `"${tableName}"`;
 
-    const query = `SELECT COUNT(*)::int AS total FROM "${fullTableName}"`;
+    const query = `SELECT COUNT(*)::int AS total FROM ${fullTableName}`;
 
     const { rows } = await client.query<CountRow>(query);
-    const totalPages: number = rows[0]?.total ?? 0;
-    // parameterize LIMIT + OFFSET, keep identifiers safely quoted
+
+    const totalPages: number = Math.ceil(rows[0]?.total / limit);
+
     const response = await client.query<Record<string, unknown>>(
       `SELECT * FROM ${fullTableName} LIMIT $1 OFFSET $2`,
       [limit, offset]

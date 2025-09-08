@@ -83,7 +83,12 @@ export async function getTableData(
         throw new Error(dataResult.message ?? "Failed to fetch table data");
       }
 
-      return { success: true, data: dataResult.rows, schema };
+      return {
+        success: true,
+        data: dataResult.rows,
+        schema,
+        totalPages: dataResult.totalPages,
+      };
     } else if (connection.type === "mongodb") {
       try {
         const data = await getCollectionDocs({
