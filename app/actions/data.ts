@@ -26,16 +26,30 @@ interface GetTableDataResult {
   data?: unknown[];
   schema?: TableSchema;
   message?: string;
+  totalPages?: number;
 }
 
 export async function getTableData(
   connection: Connection,
   tableName: string,
-  Schema?: string
+
+  Schema?: string,
+  page: number = 1,
+  pageSize: number = 20
 ): Promise<GetTableDataResult> {
   try {
     if (connection.type === "mysql") {
-      return await getMysqlData(connection, tableName);
+      const result = await getMysqlData(connection, tableName, page, pageSize);
+      if (result.success) {
+        return {
+          success: true,
+          data: result.data,
+          schema: result.schema,
+          totalPages: result.totalPages,
+        };
+      } else {
+        return { success: false, message: result.message };
+      }
     } else if (connection.type === "postgresql") {
       const result = await getTableColumns(connection, tableName, Schema);
 
@@ -61,15 +75,20 @@ export async function getTableData(
         connection,
         tableName,
         schema: Schema,
-        limit: 20,
-        page: 1,
+        limit: pageSize,
+        page,
       });
 
       if (!dataResult.success || !dataResult.rows) {
         throw new Error(dataResult.message ?? "Failed to fetch table data");
       }
 
-      return { success: true, data: dataResult.rows, schema };
+      return {
+        success: true,
+        data: dataResult.rows,
+        schema,
+        totalPages: dataResult.totalPages,
+      };
     } else if (connection.type === "mongodb") {
       try {
         const data = await getCollectionDocs({
@@ -129,7 +148,15 @@ export async function insertRow(
 
       return { success: true, message: "Row inserted successfully." };
     } else if (connection.type === "mongodb") {
-      await insertDoc(tableName, rowData, connection);
+      const result = await insertDoc(tableName, rowData, connection);
+      if (result.success) {
+        return {
+          success: true,
+          message: result.message ?? "Document inserted succeccfully",
+        };
+      } else {
+        return { success: false, message: result.message };
+      }
       return { success: true, message: "Row inserted successfully." };
     } else {
       return { success: false, message: "Unsupported database type." };
@@ -184,13 +211,23 @@ export async function updateRow(
       }
       return { success: true, message: "Row updated successfully." };
     } else if (connection.type === "mongodb") {
-      await updateDoc(
+      const result = await updateDoc(
         tableName,
         primaryKeyValue?.toString(),
         rowData,
         connection
       );
-      return { success: true, message: "Row updated successfully." };
+      if (result.success) {
+        return {
+          success: true,
+          message: result.message ?? "Row updated successfully.",
+        };
+      } else {
+        return {
+          success: false,
+          message: result.message ?? "failed to update",
+        };
+      }
     } else {
       return { success: false, message: "Unsupported database type." };
     }
@@ -234,8 +271,22 @@ export async function deleteRow(
 
       return { success: true, message: "Row deleted successfully." };
     } else if (connection.type === "mongodb") {
-      await deleteDoc(tableName, primaryKeyValue?.toString(), connection);
-      return { success: true, message: "Row deleted successfully." };
+      const result = await deleteDoc(
+        tableName,
+        primaryKeyValue?.toString(),
+        connection
+      );
+      if (result.success) {
+        return {
+          success: true,
+          message: result.message ?? "Doc deleted successfully",
+        };
+      } else {
+        return {
+          success: false,
+          message: result.message ?? "Failed to delete doc",
+        };
+      }
     } else {
       return { success: false, message: "Unsupported database type." };
     }

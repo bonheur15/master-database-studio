@@ -81,6 +81,7 @@ import { getTableData, updateRow, deleteRow } from "@/app/actions/data";
 import dynamic from "next/dynamic";
 import { AddRowDialog } from "./AddRowDialog";
 import AddColumnDialog from "./AddColumn";
+import TruncateTrigger from "./TruncateDialog";
 
 const JsonViewer = dynamic(() => import("./JsonViewer"), { ssr: false });
 
@@ -95,6 +96,9 @@ export function TableViewer() {
   const [tableSchema, setTableSchema] = useState<TableSchema | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [totalPages, setTotalPages] = useState<number | undefined>();
+
+  console.log("one of", totalPages);
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
@@ -137,10 +141,14 @@ export function TableViewer() {
       const result = await getTableData(
         currentConnection,
         tableName,
-        schema ? schema : undefined
+        schema ? schema : undefined,
+        currentPage,
+        rowsPerPage
       );
       if (result.success && result.data) {
         setTableData(result.data as Record<string, unknown>[]);
+        setTotalPages(result.totalPages);
+
         if (result.schema) {
           setTableSchema(result.schema);
           setVisibleColumns(result.schema.columns.map((col) => col.columnName));
@@ -156,7 +164,7 @@ export function TableViewer() {
       setLoading(false);
       setSelectedRows([]);
     }
-  }, [connectionId, tableName, schema]);
+  }, [connectionId, tableName, schema, currentPage, rowsPerPage]);
 
   if (connection) {
     console.log("hello from table", connection);
@@ -210,12 +218,7 @@ export function TableViewer() {
     return filteredData;
   }, [tableData, searchTerm, sortConfig]);
 
-  const paginatedData = useMemo(() => {
-    const startIndex = (currentPage - 1) * rowsPerPage;
-    return processedData.slice(startIndex, startIndex + rowsPerPage);
-  }, [processedData, currentPage, rowsPerPage]);
-
-  const totalPages = Math.ceil(processedData.length / rowsPerPage);
+  const paginatedData = useMemo(() => tableData, [tableData]);
 
   const handleEditClick = (row: Record<string, unknown>) => {
     if (!primaryKeyColumn) {
@@ -348,7 +351,11 @@ export function TableViewer() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-1 overflow-auto">
-          <JsonViewer data={tableData} />
+          <JsonViewer
+            data={tableData}
+            connection={connection}
+            tableName={tableName}
+          />
         </CardContent>
       </Card>
     );
@@ -449,6 +456,9 @@ export function TableViewer() {
               />
             ) : (
               ""
+            )}
+            {connection && (
+              <TruncateTrigger connection={connection} tableName={tableName} />
             )}
             <Tooltip>
               <TooltipTrigger asChild>

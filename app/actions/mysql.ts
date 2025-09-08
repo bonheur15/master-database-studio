@@ -12,14 +12,24 @@ import {
   TableColumn,
   TableSchema,
 } from "@/types/connection";
+import { RowDataPacket } from "mysql2";
+
+interface CountRow extends RowDataPacket {
+  total: number;
+}
 
 export async function getMysqlData(
   connection: Connection,
-  tableName: string
+  tableName: string,
+  page: number = 1,
+  pageSize: number = 20
 ): Promise<{
   success: boolean;
   data?: Record<string, unknown>[];
   schema?: TableSchema;
+  totalPages?: number;
+  page?: number;
+  pageSize?: number;
   message?: string;
 }> {
   let mysqlConnection;
@@ -60,15 +70,29 @@ export async function getMysqlData(
 
     const schema: TableSchema = { tableName, columns };
 
-    // Fetch data safely
-    const [dataRows] = await mysqlConnection.execute(
-      `SELECT * FROM \`${tableName}\``
+    const [countRows] = await mysqlConnection.execute<CountRow[]>(
+      `SELECT COUNT(*) as total FROM \`${tableName}\``
+    );
+
+    const totalPages: number = Math.ceil(countRows[0]?.total / pageSize);
+
+    // Calculate offset
+    const offset = (page - 1) * pageSize;
+
+    // Fetch data with pagination
+    const [dataRows] = await mysqlConnection.query(
+      `SELECT * FROM \`${tableName}\` LIMIT ${Number(pageSize)} OFFSET ${Number(
+        offset
+      )}`
     );
 
     return {
       success: true,
       data: dataRows as Record<string, unknown>[],
       schema,
+      totalPages,
+      page,
+      pageSize,
     };
   } catch (error: unknown) {
     if (error instanceof Error) {
@@ -343,6 +367,102 @@ export async function createMysqlTable(
     return {
       success: false,
       message: "Table creation failed due to unknown error.",
+    };
+  } finally {
+    if (client) {
+      await client.end().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error("Error closing MySQL connection:", endErr.message);
+        } else {
+          console.error("Unknown error closing MySQL connection:", endErr);
+        }
+      });
+    }
+  }
+}
+
+export async function truncateMysqlTable(
+  connection: Connection,
+  tableName: string
+): Promise<{ success: boolean; message: string }> {
+  let client;
+  try {
+    client = await mysqlConnector(connection);
+
+    const isValidIdent = (name: string) =>
+      /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
+
+    if (!isValidIdent(tableName)) {
+      return { success: false, message: "Invalid table name." };
+    }
+
+    const query = `TRUNCATE TABLE \`${tableName}\``;
+    await client.execute(query);
+
+    return {
+      success: true,
+      message: `Table "${tableName}" truncated successfully.`,
+    };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error truncating MySQL table:", error.message);
+      return {
+        success: false,
+        message: `Failed to truncate table: ${error.message}`,
+      };
+    }
+    console.error("Unknown error truncating MySQL table:", error);
+    return {
+      success: false,
+      message: "Failed to truncate table due to unknown error.",
+    };
+  } finally {
+    if (client) {
+      await client.end().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error("Error closing MySQL connection:", endErr.message);
+        } else {
+          console.error("Unknown error closing MySQL connection:", endErr);
+        }
+      });
+    }
+  }
+}
+
+export async function deleteMysqlTable(
+  connection: Connection,
+  tableName: string
+): Promise<{ success: boolean; message: string }> {
+  let client;
+  try {
+    client = await mysqlConnector(connection);
+
+    const isValidIdent = (name: string) =>
+      /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
+
+    if (!isValidIdent(tableName)) {
+      return { success: false, message: "Invalid table name." };
+    }
+
+    const query = `DROP TABLE \`${tableName}\``;
+    await client.execute(query);
+
+    return {
+      success: true,
+      message: `Table "${tableName}" deleted successfully.`,
+    };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error deleting MySQL table:", error.message);
+      return {
+        success: false,
+        message: `Failed to delete table: ${error.message}`,
+      };
+    }
+    console.error("Unknown error deleting MySQL table:", error);
+    return {
+      success: false,
+      message: "Failed to delete table due to unknown error.",
     };
   } finally {
     if (client) {

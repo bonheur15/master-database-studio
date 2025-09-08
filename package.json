@@ -60,6 +60,7 @@
     "react-hook-form": "^7.60.0",
     "react-resizable-panels": "^3.0.3",
     "react-simple-code-editor": "^0.14.1",
+    "react18-json-view": "^0.2.9",
     "recharts": "2.15.4",
     "sonner": "^2.0.6",
     "sql-formatter": "^15.6.6",

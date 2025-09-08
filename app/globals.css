@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "react18-json-view/src/dark.css";
+@import "react18-json-view/src/style.css";
 
 @custom-variant dark (&:is(.dark *));
 :root {
@@ -132,4 +134,18 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Make copy/edit/link icons bigger */
+.json-view .json-view--copy,
+.json-view .json-view--edit,
+.json-view .json-view--link svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+/* Make chevron bigger */
+.json-view .jv-chevron {
+  width: 20px !important;
+  height: 20px !important;
 }

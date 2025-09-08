@@ -4,6 +4,9 @@ import { pgConnector } from "@/lib/adapters/postgres";
 import { buildSQL } from "@/lib/helpers/helpers";
 import { ColumnOptions, Connection } from "@/types/connection";
 
+interface CountRow {
+  total: number;
+}
 export async function getSchemas(connection: Connection): Promise<{
   success: boolean;
   schemas?: string[];
@@ -249,6 +252,7 @@ export async function getTableDatas({
   success: boolean;
   rows?: Record<string, unknown>[];
   message?: string;
+  totalPages?: number;
 }> {
   let client;
   try {
@@ -267,18 +271,22 @@ export async function getTableDatas({
       return { success: false, message: "Invalid schema name" };
     }
 
-    // build qualified table name (safe because of regex check)
     const fullTableName = schema
       ? `"${schema}"."${tableName}"`
       : `"${tableName}"`;
 
-    // parameterize LIMIT + OFFSET, keep identifiers safely quoted
+    const query = `SELECT COUNT(*)::int AS total FROM ${fullTableName}`;
+
+    const { rows } = await client.query<CountRow>(query);
+
+    const totalPages: number = Math.ceil(rows[0]?.total / limit);
+
     const response = await client.query<Record<string, unknown>>(
       `SELECT * FROM ${fullTableName} LIMIT $1 OFFSET $2`,
       [limit, offset]
     );
 
-    return { success: true, rows: response.rows };
+    return { success: true, rows: response.rows, totalPages };
   } catch (error: unknown) {
     if (error instanceof Error) {
       console.error("Error fetching table data:", error.message);
@@ -698,6 +706,118 @@ export async function createSchema(
             "Unknown error closing client in createSchema:",
             endErr
           );
+        }
+      });
+    }
+  }
+}
+
+export async function deletePgTable(
+  connection: Connection,
+  tableName: string,
+  schema?: string
+): Promise<{ success: boolean; message: string }> {
+  let client;
+  try {
+    client = await pgConnector(connection);
+
+    const isValidIdent = (name: string) =>
+      /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
+
+    if (!isValidIdent(tableName)) {
+      return { success: false, message: "Invalid table name." };
+    }
+    if (schema && !isValidIdent(schema)) {
+      return { success: false, message: "Invalid schema name." };
+    }
+
+    const fullTableName = schema
+      ? `"${schema}"."${tableName}"`
+      : `"${tableName}"`;
+
+    const query = `DROP TABLE ${fullTableName}`;
+    await client.query(query);
+
+    return {
+      success: true,
+      message: `Table "${fullTableName}" deleted successfully.`,
+    };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error deleting PostgreSQL table:", error.message);
+      return {
+        success: false,
+        message: `Failed to delete table: ${error.message}`,
+      };
+    }
+    console.error("Unknown error deleting PostgreSQL table:", error);
+    return {
+      success: false,
+      message: "Failed to delete table due to unknown error.",
+    };
+  } finally {
+    if (client) {
+      await client.end().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error("Error closing PostgreSQL connection:", endErr.message);
+        } else {
+          console.error("Unknown error closing PostgreSQL connection:", endErr);
+        }
+      });
+    }
+  }
+}
+
+export async function truncatePgTable(
+  connection: Connection,
+  tableName: string,
+  schema?: string
+): Promise<{ success: boolean; message: string }> {
+  let client;
+  try {
+    client = await pgConnector(connection);
+
+    const isValidIdent = (name: string) =>
+      /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
+
+    if (!isValidIdent(tableName)) {
+      return { success: false, message: "Invalid table name." };
+    }
+    if (schema && !isValidIdent(schema)) {
+      return { success: false, message: "Invalid schema name." };
+    }
+
+    const fullTableName = schema
+      ? `"${schema}"."${tableName}"`
+      : `"${tableName}"`;
+
+    const query = `TRUNCATE TABLE ${fullTableName}`;
+    await client.query(query);
+
+    return {
+      success: true,
+      message: `Table "${fullTableName}" truncated successfully.`,
+    };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error truncating PostgreSQL table:", error.message);
+      return {
+        success: false,
+        message: `Failed to truncate table: ${error.message}`,
+      };
+    }
+    console.error("Unknown error truncating PostgreSQL table:", error);
+    return {
+      success: false,
+      message: "Failed to truncate table due to unknown error.",
+    };
+  } finally {
+    if (client) {
+      await client.end().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error("Error closing PostgreSQL connection:", endErr.message);
+        } else {
+          console.error("Unknown error closing PostgreSQL connection:", endErr);
         }
       });
     }

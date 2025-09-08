@@ -1,4 +1,5 @@
 "use client";
+import { createCollection } from "@/app/actions/mongo";
 import { createMysqlTable } from "@/app/actions/mysql";
 import { createTable } from "@/app/actions/postgres";
 import { Button } from "@/components/ui/button";
@@ -33,10 +34,17 @@ export function CreateTableDialog({
       } else {
         toast.error(result.message ?? "failed to create table");
       }
-    } else {
+    } else if (connection.type === "mysql") {
       const result = await createMysqlTable(connection, table);
       if (result.success) {
         toast.success(result.success ?? "table created successfully ");
+      } else {
+        toast.error(result.message ?? "failed to create table");
+      }
+    } else if (connection.type === "mongodb") {
+      const result = await createCollection(table, connection);
+      if (result.success) {
+        toast.success(result.message ?? "table created successfully ");
       } else {
         toast.error(result.message ?? "failed to create table");
       }
@@ -47,13 +55,13 @@ export function CreateTableDialog({
     <Dialog>
       <DialogTrigger asChild>
         <div className="cursor-pointer hover:bg-primary/10 p-2 rounded-md">
-          Add table
+          Add {connection.type === "mongodb" ? "Collection" : "Table"}
         </div>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="text-sm">
-            Create Table{" "}
+            Create {connection.type === "mongodb" ? "Collection" : "Table"}{" "}
             {schema ? (
               <span>
                 {" "}
@@ -64,7 +72,8 @@ export function CreateTableDialog({
             )}
           </DialogTitle>
           <DialogDescription>
-            Enter the name for your new table.
+            Enter the name for your new{" "}
+            {connection.type === "mongodb" ? "Collection" : "Table"}.
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">

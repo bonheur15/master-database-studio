@@ -1,5 +1,5 @@
 "use client";
-import { Search, Table } from "lucide-react";
+import { Delete, Search, Table, Trash2 } from "lucide-react";
 import React, { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
@@ -32,6 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { SelectTrigger } from "@radix-ui/react-select";
+import DeleteTriger from "./DeleteTriger";
 
 export function ExplorerSidebar() {
   const searchParams = useSearchParams();
@@ -212,30 +213,46 @@ export function ExplorerSidebar() {
                   </p>
                 ) : (
                   filteredTables.map((table) => (
-                    <Link
-                      key={table.name}
-                      href={`/studio?connectionId=${connectionId}&tableName=${
-                        table.name
-                      }${selectedSchema ? `&schema=${selectedSchema}` : ""}`}
-                      onClick={() => setActiveTable(table.name)}
-                      className={cn(
-                        "flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-muted/50 hover:text-foreground",
-                        activeTable === table.name &&
-                          "bg-muted/90 font-medium text-foreground dark:bg-muted"
-                      )}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Table className="h-4 w-4" />
-                        <span>
-                          {table.name.length > 14
-                            ? `${table.name.slice(0, 14)}...`
-                            : table.name}
-                        </span>
+                    <>
+                      <div className="flex w-full justify-between pr-4">
+                        <Link
+                          key={table.name}
+                          href={`/studio?connectionId=${connectionId}&tableName=${
+                            table.name
+                          }${
+                            selectedSchema ? `&schema=${selectedSchema}` : ""
+                          }`}
+                          onClick={() => setActiveTable(table.name)}
+                          className={cn(
+                            "flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-muted/50 group hover:text-foreground",
+                            activeTable === table.name &&
+                              "bg-muted/90 font-medium text-foreground dark:bg-muted"
+                          )}
+                        >
+                          <div className="flex items-center gap-2 relative">
+                            <Table className="h-4 w-4" />
+                            <span>
+                              {table.name.length > 7
+                                ? `${table.name.slice(0, 7)}...`
+                                : table.name}
+                            </span>
+                          </div>
+                          <Badge
+                            variant="secondary"
+                            className="font-mono text-xs"
+                          >
+                            {table.count.toLocaleString()}
+                          </Badge>
+                        </Link>
+
+                        {connected && (
+                          <DeleteTriger
+                            connection={connected}
+                            tableName={table.name}
+                          />
+                        )}
                       </div>
-                      <Badge variant="secondary" className="font-mono text-xs">
-                        {table.count.toLocaleString()}
-                      </Badge>
-                    </Link>
+                    </>
                   ))
                 )}
               </div>

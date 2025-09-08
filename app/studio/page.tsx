@@ -82,7 +82,7 @@ function StudioPage() {
             <a className="flex items-center gap-2 font-semibold" href="#">
               <DatabaseZap className="h-6 w-6 text-primary" />
               <span className="text-xl font-bold tracking-tighter bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                MasterDB{" "}
+                Portal studio{" "}
                 <span className="text-xs text-muted-foreground">beta</span>
               </span>
             </a>
