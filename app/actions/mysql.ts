@@ -12,14 +12,24 @@ import {
   TableColumn,
   TableSchema,
 } from "@/types/connection";
+import { RowDataPacket } from "mysql2";
+
+interface CountRow extends RowDataPacket {
+  total: number;
+}
 
 export async function getMysqlData(
   connection: Connection,
-  tableName: string
+  tableName: string,
+  page: number = 1,
+  pageSize: number = 2
 ): Promise<{
   success: boolean;
   data?: Record<string, unknown>[];
   schema?: TableSchema;
+  totalPages?: number;
+  page?: number;
+  pageSize?: number;
   message?: string;
 }> {
   let mysqlConnection;
@@ -60,15 +70,29 @@ export async function getMysqlData(
 
     const schema: TableSchema = { tableName, columns };
 
-    // Fetch data safely
-    const [dataRows] = await mysqlConnection.execute(
-      `SELECT * FROM \`${tableName}\``
+    const [countRows] = await mysqlConnection.execute<CountRow[]>(
+      `SELECT COUNT(*) as total FROM \`${tableName}\``
+    );
+
+    const totalPages: number = Math.ceil(countRows[0]?.total / pageSize);
+
+    // Calculate offset
+    const offset = (page - 1) * pageSize;
+
+    // Fetch data with pagination
+    const [dataRows] = await mysqlConnection.query(
+      `SELECT * FROM \`${tableName}\` LIMIT ${Number(pageSize)} OFFSET ${Number(
+        offset
+      )}`
     );
 
     return {
       success: true,
       data: dataRows as Record<string, unknown>[],
       schema,
+      totalPages,
+      page,
+      pageSize,
     };
   } catch (error: unknown) {
     if (error instanceof Error) {

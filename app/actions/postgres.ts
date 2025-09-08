@@ -4,6 +4,9 @@ import { pgConnector } from "@/lib/adapters/postgres";
 import { buildSQL } from "@/lib/helpers/helpers";
 import { ColumnOptions, Connection } from "@/types/connection";
 
+interface CountRow {
+  total: number;
+}
 export async function getSchemas(connection: Connection): Promise<{
   success: boolean;
   schemas?: string[];
@@ -249,6 +252,7 @@ export async function getTableDatas({
   success: boolean;
   rows?: Record<string, unknown>[];
   message?: string;
+  totalPages?: number;
 }> {
   let client;
   try {
@@ -272,13 +276,17 @@ export async function getTableDatas({
       ? `"${schema}"."${tableName}"`
       : `"${tableName}"`;
 
+    const query = `SELECT COUNT(*)::int AS total FROM "${fullTableName}"`;
+
+    const { rows } = await client.query<CountRow>(query);
+    const totalPages: number = rows[0]?.total ?? 0;
     // parameterize LIMIT + OFFSET, keep identifiers safely quoted
     const response = await client.query<Record<string, unknown>>(
       `SELECT * FROM ${fullTableName} LIMIT $1 OFFSET $2`,
       [limit, offset]
     );
 
-    return { success: true, rows: response.rows };
+    return { success: true, rows: response.rows, totalPages };
   } catch (error: unknown) {
     if (error instanceof Error) {
       console.error("Error fetching table data:", error.message);

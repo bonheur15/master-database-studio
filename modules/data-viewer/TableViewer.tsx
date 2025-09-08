@@ -96,6 +96,7 @@ export function TableViewer() {
   const [tableSchema, setTableSchema] = useState<TableSchema | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [totalPages, setTotalPages] = useState<number | undefined>();
 
   const [visibleColumns, setVisibleColumns] = useState<string[]>([]);
   const [selectedRows, setSelectedRows] = useState<string[]>([]);
@@ -138,10 +139,13 @@ export function TableViewer() {
       const result = await getTableData(
         currentConnection,
         tableName,
-        schema ? schema : undefined
+        schema ? schema : undefined,
+        currentPage
       );
       if (result.success && result.data) {
         setTableData(result.data as Record<string, unknown>[]);
+        setTotalPages(result.totalPages);
+
         if (result.schema) {
           setTableSchema(result.schema);
           setVisibleColumns(result.schema.columns.map((col) => col.columnName));
@@ -157,7 +161,7 @@ export function TableViewer() {
       setLoading(false);
       setSelectedRows([]);
     }
-  }, [connectionId, tableName, schema]);
+  }, [connectionId, tableName, schema, currentPage]);
 
   if (connection) {
     console.log("hello from table", connection);
@@ -211,12 +215,7 @@ export function TableViewer() {
     return filteredData;
   }, [tableData, searchTerm, sortConfig]);
 
-  const paginatedData = useMemo(() => {
-    const startIndex = (currentPage - 1) * rowsPerPage;
-    return processedData.slice(startIndex, startIndex + rowsPerPage);
-  }, [processedData, currentPage, rowsPerPage]);
-
-  const totalPages = Math.ceil(processedData.length / rowsPerPage);
+  const paginatedData = useMemo(() => tableData, [tableData]);
 
   const handleEditClick = (row: Record<string, unknown>) => {
     if (!primaryKeyColumn) {

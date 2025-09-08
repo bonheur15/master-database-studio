@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Connection, jsonPayload } from "@/types/connection";
 import { deleteRow, insertRow, updateRow } from "@/app/actions/data";
 import { buildFullPath } from "@/lib/helpers/helpers";
-import { insertDoc, unsetDocField } from "@/app/actions/mongo";
+import { unsetDocField } from "@/app/actions/mongo";
 
 interface JsonViewerProps {
   data: any;
@@ -24,15 +24,17 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
   const [mounted, SetMounted] = React.useState(false);
 
   const handleEdit = async (params: any) => {
-    const { indexOrName, newValue, parentPath, parentType }: jsonPayload =
-      params;
+    const { indexOrName, newValue, parentPath }: jsonPayload = params;
     console.log("edit event", params);
 
-    const fullPath = await buildFullPath(indexOrName, parentPath, parentType);
+    const fullPath = await buildFullPath(indexOrName, parentPath);
 
     const targetDoc = data[parentPath[0]];
 
     const id = targetDoc ? targetDoc._id : undefined;
+    console.log("array", params);
+    console.log("array", fullPath);
+    console.log("array", targetDoc);
 
     try {
       if (!id) {
@@ -60,9 +62,9 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
   };
 
   const handleDelete = async (params: any) => {
-    const { indexOrName, value, parentPath, parentType }: jsonPayload = params;
+    const { indexOrName, value, parentPath }: jsonPayload = params;
     console.log("edit event", params);
-    const fullPath = await buildFullPath(indexOrName, parentPath, parentType);
+    const fullPath = await buildFullPath(indexOrName, parentPath);
     console.log("one path", fullPath);
 
     const targetDoc = data[parentPath[0]];

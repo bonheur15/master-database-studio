@@ -192,14 +192,12 @@ export function generatMysqlDummyColumnName(): string {
 
 export async function buildFullPath(
   indexOrName: string | number,
-  parentPath: (string | number)[],
-  parentType: "object" | "array"
+  parentPath: (string | number)[]
 ) {
   const path: (string | number)[] = [];
   let namespace = parentPath;
-  if (parentType === "object") {
-    namespace = parentPath.slice(1); // drop the leading "0" / "1"
-  }
+
+  namespace = parentPath.slice(1);
 
   for (const key of namespace) {
     path.push(String(key));

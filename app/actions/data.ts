@@ -26,16 +26,30 @@ interface GetTableDataResult {
   data?: unknown[];
   schema?: TableSchema;
   message?: string;
+  totalPages?: number;
 }
 
 export async function getTableData(
   connection: Connection,
   tableName: string,
-  Schema?: string
+
+  Schema?: string,
+  page: number = 1,
+  pageSize: number = 20
 ): Promise<GetTableDataResult> {
   try {
     if (connection.type === "mysql") {
-      return await getMysqlData(connection, tableName);
+      const result = await getMysqlData(connection, tableName, page, pageSize);
+      if (result.success) {
+        return {
+          success: true,
+          data: result.data,
+          schema: result.schema,
+          totalPages: result.totalPages,
+        };
+      } else {
+        return { success: false, message: result.message };
+      }
     } else if (connection.type === "postgresql") {
       const result = await getTableColumns(connection, tableName, Schema);
 
@@ -61,8 +75,8 @@ export async function getTableData(
         connection,
         tableName,
         schema: Schema,
-        limit: 20,
-        page: 1,
+        limit: pageSize,
+        page,
       });
 
       if (!dataResult.success || !dataResult.rows) {
