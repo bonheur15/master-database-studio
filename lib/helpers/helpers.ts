@@ -189,3 +189,22 @@ export function generatMysqlDummyColumnName(): string {
   const random = Math.random().toString(16).slice(2, 10);
   return `${prefix}${random}`;
 }
+
+export async function buildFullPath(
+  indexOrName: string | number,
+  parentPath: (string | number)[],
+  parentType: "object" | "array"
+) {
+  const path: (string | number)[] = [];
+  let namespace = parentPath;
+  if (parentType === "object") {
+    namespace = parentPath.slice(1); // drop the leading "0" / "1"
+  }
+
+  for (const key of namespace) {
+    path.push(String(key));
+  }
+
+  path.push(indexOrName);
+  return path.join(".");
+}

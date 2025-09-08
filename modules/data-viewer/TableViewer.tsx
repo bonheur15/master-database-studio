@@ -81,6 +81,7 @@ import { getTableData, updateRow, deleteRow } from "@/app/actions/data";
 import dynamic from "next/dynamic";
 import { AddRowDialog } from "./AddRowDialog";
 import AddColumnDialog from "./AddColumn";
+import TruncateTrigger from "./TruncateDialog";
 
 const JsonViewer = dynamic(() => import("./JsonViewer"), { ssr: false });
 
@@ -348,7 +349,11 @@ export function TableViewer() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex-1 overflow-auto">
-          <JsonViewer data={tableData} />
+          <JsonViewer
+            data={tableData}
+            connection={connection}
+            tableName={tableName}
+          />
         </CardContent>
       </Card>
     );
@@ -449,6 +454,9 @@ export function TableViewer() {
               />
             ) : (
               ""
+            )}
+            {connection && (
+              <TruncateTrigger connection={connection} tableName={tableName} />
             )}
             <Tooltip>
               <TooltipTrigger asChild>

@@ -27,7 +27,10 @@ function SchemaOptions({
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <div className="flex flex-col  py-4 px-1  w-60">
-          <CreateSchemaDialog connection={connection} />
+          {connection.type === "postgresql" && (
+            <CreateSchemaDialog connection={connection} />
+          )}
+
           <CreateTableDialog connection={connection} schema={schema} />
         </div>
       </DropdownMenuContent>

@@ -129,7 +129,15 @@ export async function insertRow(
 
       return { success: true, message: "Row inserted successfully." };
     } else if (connection.type === "mongodb") {
-      await insertDoc(tableName, rowData, connection);
+      const result = await insertDoc(tableName, rowData, connection);
+      if (result.success) {
+        return {
+          success: true,
+          message: result.message ?? "Document inserted succeccfully",
+        };
+      } else {
+        return { success: false, message: result.message };
+      }
       return { success: true, message: "Row inserted successfully." };
     } else {
       return { success: false, message: "Unsupported database type." };
@@ -184,13 +192,23 @@ export async function updateRow(
       }
       return { success: true, message: "Row updated successfully." };
     } else if (connection.type === "mongodb") {
-      await updateDoc(
+      const result = await updateDoc(
         tableName,
         primaryKeyValue?.toString(),
         rowData,
         connection
       );
-      return { success: true, message: "Row updated successfully." };
+      if (result.success) {
+        return {
+          success: true,
+          message: result.message ?? "Row updated successfully.",
+        };
+      } else {
+        return {
+          success: false,
+          message: result.message ?? "failed to update",
+        };
+      }
     } else {
       return { success: false, message: "Unsupported database type." };
     }
@@ -234,8 +252,22 @@ export async function deleteRow(
 
       return { success: true, message: "Row deleted successfully." };
     } else if (connection.type === "mongodb") {
-      await deleteDoc(tableName, primaryKeyValue?.toString(), connection);
-      return { success: true, message: "Row deleted successfully." };
+      const result = await deleteDoc(
+        tableName,
+        primaryKeyValue?.toString(),
+        connection
+      );
+      if (result.success) {
+        return {
+          success: true,
+          message: result.message ?? "Doc deleted successfully",
+        };
+      } else {
+        return {
+          success: false,
+          message: result.message ?? "Failed to delete doc",
+        };
+      }
     } else {
       return { success: false, message: "Unsupported database type." };
     }

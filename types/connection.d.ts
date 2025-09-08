@@ -67,3 +67,11 @@ export type ColumnOptions = {
 };
 
 type Dialect = "postgresql" | "mysql" | "mongodb";
+
+export type jsonPayload = {
+  indexOrName: string | number;
+  parentPath: (string | number)[];
+  newValue: unknown;
+  parentType: "object" | "array";
+  value?: { _id: string };
+};

@@ -5,7 +5,6 @@ import { Connection } from "@/types/connection";
 import { ObjectId } from "mongodb";
 
 export async function getCollections(connection: Connection) {
-  console.log("confs", connection);
   const client = await mgConnector(connection);
 
   const database = client.db(connection.database);
@@ -33,14 +32,63 @@ export async function deleteCollections({
 }: {
   collection: string;
   connection: Connection;
-}) {
-  const client = await mgConnector(connection);
+}): Promise<{ success: boolean; message?: string }> {
+  let client;
+  try {
+    client = await mgConnector(connection);
+    const db = client.db(connection.database);
 
-  const database = client.db(connection.database);
-  const collectionToDelete = database.collection(collection);
-  await collectionToDelete.drop();
+    // Validate collection name
+    const isValidIdent = (name: string) => /^[a-zA-Z0-9_]+$/.test(name);
 
-  return { success: true };
+    if (!isValidIdent(collection)) {
+      return { success: false, message: "Invalid collection name." };
+    }
+
+    const collectionToDelete = db.collection(collection);
+    const dropped = await collectionToDelete.drop();
+
+    if (!dropped) {
+      return {
+        success: false,
+        message: `Collection "${collection}" could not be dropped.`,
+      };
+    }
+
+    return {
+      success: true,
+      message: `Collection "${collection}" deleted successfully.`,
+    };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error deleting collection:", error.message);
+      return {
+        success: false,
+        message: `Failed to delete collection: ${error.message}`,
+      };
+    }
+    console.error("Unknown error deleting collection:", error);
+    return {
+      success: false,
+      message: "Failed to delete collection due to an unknown error.",
+    };
+  } finally {
+    if (client) {
+      await client.close().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error(
+            "Error closing MongoDB client in deleteCollections:",
+            endErr.message
+          );
+        } else {
+          console.error(
+            "Unknown error closing MongoDB client in deleteCollections:",
+            endErr
+          );
+        }
+      });
+    }
+  }
 }
 
 export async function getCollectionDocs({
@@ -67,13 +115,60 @@ export async function insertDoc(
   collectionName: string,
   document: Record<string, unknown>,
   connection: Connection
-) {
-  const client = await mgConnector(connection);
-  const db = client.db(connection.database);
-  const col = db.collection(collectionName);
+): Promise<{
+  success: boolean;
+  message?: string;
+}> {
+  let client;
+  try {
+    client = await mgConnector(connection);
+    const db = client.db(connection.database);
+    console.log(document);
 
-  const result = await col.insertOne(document);
-  return result;
+    // Validate collection name
+    const isValidIdent = (name: string) => /^[a-zA-Z0-9_]+$/.test(name);
+
+    if (!isValidIdent(collectionName)) {
+      return { success: false, message: "Invalid collection name." };
+    }
+
+    const col = db.collection(collectionName);
+    await col.insertOne(document);
+
+    return {
+      success: true,
+      message: "Document inserted successfully.",
+    };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error(error.message ?? "Error inserting document:");
+      return {
+        success: false,
+        message: error.message ?? "Failed to insert document",
+      };
+    }
+    console.error("Unknown error inserting document:", error);
+    return {
+      success: false,
+      message: "Failed to insert document.",
+    };
+  } finally {
+    if (client) {
+      await client.close().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error(
+            "Error closing MongoDB client in insertDoc:",
+            endErr.message
+          );
+        } else {
+          console.error(
+            "Unknown error closing MongoDB client in insertDoc:",
+            endErr
+          );
+        }
+      });
+    }
+  }
 }
 
 export async function updateDoc(
@@ -81,42 +176,267 @@ export async function updateDoc(
   id: string,
   update: Record<string, unknown>,
   connection: Connection
-) {
-  const client = await mgConnector(connection);
-  const db = client.db(connection.database);
-  const col = db.collection(collectionName);
+): Promise<{
+  success: boolean;
+  message: string;
+  matchedCount?: number;
+  modifiedCount?: number;
+}> {
+  let client;
+  try {
+    console.log("things to update", update);
+    client = await mgConnector(connection);
+    const db = client.db(connection.database);
+    const col = db.collection(collectionName);
 
-  const result = await col.updateOne(
-    { _id: new ObjectId(id) },
-    { $set: update }
-  );
+    // Validate ObjectId
+    let objectId: ObjectId;
+    try {
+      objectId = new ObjectId(id);
+    } catch {
+      return {
+        success: false,
+        message: "Invalid MongoDB ObjectId format.",
+      };
+    }
 
-  return result;
+    const result = await col.updateOne({ _id: objectId }, { $set: update });
+    console.log("resss", result);
+
+    if (result.matchedCount === 0) {
+      return {
+        success: false,
+        message: "Document not found.",
+        matchedCount: 0,
+        modifiedCount: 0,
+      };
+    }
+
+    if (result.modifiedCount === 0) {
+      return {
+        success: true,
+        message: "No changes were applied.",
+        matchedCount: result.matchedCount,
+        modifiedCount: 0,
+      };
+    }
+
+    return {
+      success: true,
+      message: "Document updated successfully.",
+      matchedCount: result.matchedCount,
+      modifiedCount: result.modifiedCount,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      message: `Update failed: ${(error as Error).message}`,
+    };
+  } finally {
+    if (client) {
+      await client.close();
+    }
+  }
 }
 
+export async function unsetDocField(
+  collectionName: string,
+  id: string,
+  field: string,
+  connection: Connection
+): Promise<{
+  success: boolean;
+  message?: string;
+}> {
+  let client;
+  try {
+    client = await mgConnector(connection);
+    const db = client.db(connection.database);
+
+    // Validate collection name
+    const isValidIdent = (name: string) => /^[a-zA-Z0-9_.]+$/.test(name);
+
+    if (!isValidIdent(collectionName)) {
+      return { success: false, message: "Invalid collection name." };
+    }
+
+    if (!ObjectId.isValid(id)) {
+      return { success: false, message: "Invalid document ID." };
+    }
+
+    if (!isValidIdent(field)) {
+      return { success: false, message: "Invalid field name." };
+    }
+
+    const col = db.collection(collectionName);
+
+    const result = await col.updateOne(
+      { _id: new ObjectId(id) },
+      { $unset: { [field]: "" } }
+    );
+
+    if (result.modifiedCount && result.modifiedCount > 0) {
+      return {
+        success: true,
+        message: `Field  removed successfully.`,
+      };
+    } else {
+      return {
+        success: false,
+        message: "No document found or field already missing.",
+      };
+    }
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error unsetting field:", error.message);
+      return {
+        success: false,
+        message: error.message ?? "Failed to delete field",
+      };
+    }
+    console.error("Unknown error unsetting field:", error);
+    return {
+      success: false,
+      message: "Failed to unset field due to an unknown error.",
+    };
+  } finally {
+    if (client) {
+      await client.close().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error(
+            "Error closing MongoDB client in unsetDocField:",
+            endErr.message
+          );
+        } else {
+          console.error(
+            "Unknown error closing MongoDB client in unsetDocField:",
+            endErr
+          );
+        }
+      });
+    }
+  }
+}
 export async function deleteDoc(
   collectionName: string,
   id: string,
   connection: Connection
-) {
-  const client = await mgConnector(connection);
-  const db = client.db(connection.database);
-  const col = db.collection(collectionName);
+): Promise<{
+  success: boolean;
+  message?: string;
+}> {
+  let client;
+  try {
+    client = await mgConnector(connection);
+    const db = client.db(connection.database);
 
-  await col.deleteOne({
-    _id: new ObjectId(id),
-  });
-  return { success: true };
+    // Validate collection name
+    const isValidIdent = (name: string) => /^[a-zA-Z0-9_]+$/.test(name);
+
+    if (!isValidIdent(collectionName)) {
+      return { success: false, message: "Invalid collection name." };
+    }
+
+    if (!ObjectId.isValid(id)) {
+      return { success: false, message: "Invalid document ID." };
+    }
+
+    const col = db.collection(collectionName);
+    const result = await col.deleteOne({ _id: new ObjectId(id) });
+
+    if (result.deletedCount && result.deletedCount > 0) {
+      return {
+        success: true,
+        message: "Document deleted successfully.",
+      };
+    } else {
+      return {
+        success: false,
+        message: "No document found with the given ID.",
+      };
+    }
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error deleting document:", error.message);
+      return {
+        success: false,
+        message: `Failed to delete document: ${error.message}`,
+      };
+    }
+    console.error("Unknown error deleting document:", error);
+    return {
+      success: false,
+      message: "Failed to delete document due to an unknown error.",
+    };
+  } finally {
+    if (client) {
+      await client.close().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error(
+            "Error closing MongoDB client in deleteDoc:",
+            endErr.message
+          );
+        } else {
+          console.error(
+            "Unknown error closing MongoDB client in deleteDoc:",
+            endErr
+          );
+        }
+      });
+    }
+  }
 }
 
 export async function createCollection(
   collectionName: string,
   connection: Connection
-) {
-  const client = await mgConnector(connection);
-  const db = client.db(connection.database);
+): Promise<{ success: boolean; message?: string }> {
+  let client;
+  try {
+    client = await mgConnector(connection);
+    const db = client.db(connection.database);
 
-  await db.createCollection(collectionName);
+    // Validate collection name
+    const isValidIdent = (name: string) => /^[a-zA-Z0-9_]+$/.test(name);
 
-  return { success: true };
+    if (!isValidIdent(collectionName)) {
+      return { success: false, message: "Invalid collection name." };
+    }
+
+    await db.createCollection(collectionName);
+
+    return {
+      success: true,
+      message: `Collection "${collectionName}" created successfully.`,
+    };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error creating collection:", error.message);
+      return {
+        success: false,
+        message: `Failed to create collection: ${error.message}`,
+      };
+    }
+    console.error("Unknown error creating collection:", error);
+    return {
+      success: false,
+      message: "Failed to create collection due to an unknown error.",
+    };
+  } finally {
+    if (client) {
+      await client.close().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error(
+            "Error closing MongoDB client in createCollection:",
+            endErr.message
+          );
+        } else {
+          console.error(
+            "Unknown error closing MongoDB client in createCollection:",
+            endErr
+          );
+        }
+      });
+    }
+  }
 }
