@@ -101,14 +101,63 @@ export async function getCollectionDocs({
   page?: number;
   pagesize?: number;
   connection: Connection;
-}) {
-  const client = await mgConnector(connection);
+}): Promise<{
+  success: boolean;
+  data?: Record<string, unknown>[];
+  message?: string;
+  totalPages?: number;
+}> {
+  let client;
+  try {
+    client = await mgConnector(connection);
 
-  const offset = (page - 1) * pagesize;
-  const database = client.db(connection.database);
-  const col = database.collection(collection);
-  const docs = await col.find().skip(offset).limit(pagesize).toArray();
-  return JSON.parse(JSON.stringify(docs));
+    if (!collection || typeof collection !== "string") {
+      return { success: false, message: "Invalid collection name." };
+    }
+    if (page < 1 || pagesize < 1) {
+      return {
+        success: false,
+        message: "Page and pagesize must be positive integers.",
+      };
+    }
+
+    const offset = (page - 1) * pagesize;
+    const db = client.db(connection.database);
+    const col = db.collection(collection);
+    const total = await col.countDocuments({});
+    const totalPages = Math.ceil(total / pagesize);
+    const docs = await col.find().skip(offset).limit(pagesize).toArray();
+
+    return {
+      success: true,
+      message: "data fetched successfully",
+      data: JSON.parse(JSON.stringify(docs)),
+      totalPages,
+    };
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      console.error("Error fetching MongoDB collection docs:", error.message);
+      return {
+        success: false,
+        message: `Failed to fetch docs: ${error.message}`,
+      };
+    }
+    console.error("Unknown error fetching MongoDB collection docs:", error);
+    return {
+      success: false,
+      message: "Failed to fetch docs due to unknown error.",
+    };
+  } finally {
+    if (client) {
+      await client.close().catch((endErr: unknown) => {
+        if (endErr instanceof Error) {
+          console.error("Error closing MongoDB client:", endErr.message);
+        } else {
+          console.error("Unknown error closing MongoDB client:", endErr);
+        }
+      });
+    }
+  }
 }
 
 export async function insertDoc(

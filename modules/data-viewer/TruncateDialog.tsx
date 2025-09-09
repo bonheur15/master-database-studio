@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Connection } from "@/types/connection";
-import { Scissors } from "lucide-react";
+
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -55,13 +55,15 @@ function TruncateTrigger({
   return (
     <Dialog>
       <DialogTrigger>
-        <Button className="bg-red-500">Truncate</Button>
+        <Button className="bg-red-600 hover:bg-red-500 cursor-pointer">
+          Truncate
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle className="text-sm">Truncate Table</DialogTitle>
           <DialogDescription>
-            Type <span className="text-sm text-yellow-600">{tableName}</span> to
+            Type <span className="text-sm text-red-600">{tableName}</span> to
             confirm truncate. This will <b>remove all rows</b> but keep the
             table.
           </DialogDescription>
@@ -78,7 +80,7 @@ function TruncateTrigger({
           <Button
             type="submit"
             onClick={handleTruncate}
-            className="bg-yellow-600 text-white"
+            className="bg-red-600 hover:bg-red-500 text-white"
             disabled={!confirmed}
           >
             Truncate
