@@ -1,5 +1,5 @@
 "use client";
-import { Delete, Search, Table, Trash2 } from "lucide-react";
+import { Search, Table } from "lucide-react";
 import React, { useState, useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "next/navigation";
@@ -224,7 +224,7 @@ export function ExplorerSidebar() {
                           }`}
                           onClick={() => setActiveTable(table.name)}
                           className={cn(
-                            "flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-all hover:bg-muted/50 group hover:text-foreground",
+                            "flex items-center justify-between gap-3 rounded-md px-1 py-2 text-sm text-muted-foreground transition-all hover:bg-muted/50 group hover:text-foreground",
                             activeTable === table.name &&
                               "bg-muted/90 font-medium text-foreground dark:bg-muted"
                           )}
@@ -233,7 +233,7 @@ export function ExplorerSidebar() {
                             <Table className="h-4 w-4" />
                             <span>
                               {table.name.length > 7
-                                ? `${table.name.slice(0, 7)}...`
+                                ? `${table.name.slice(0, 7)}..`
                                 : table.name}
                             </span>
                           </div>

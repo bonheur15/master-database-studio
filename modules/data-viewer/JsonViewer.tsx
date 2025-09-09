@@ -22,9 +22,6 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
   tableName,
 }) => {
   const [mounted, SetMounted] = useState(false);
-  // const [datas, setDatas] = useState(data);
-  // const [rowsPerPage, setRowsPerPage] = useState<number>(10);
-  // const [currentPage, setCurrentPage] = useState<number>(1);
 
   const handleEdit = async (params: any) => {
     const { indexOrName, newValue, parentPath }: jsonPayload = params;

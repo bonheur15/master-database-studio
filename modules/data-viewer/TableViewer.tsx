@@ -10,11 +10,9 @@ import {
   Search,
   Trash2,
   X,
-  Table2,
   Check,
-  XCircle,
-  Database,
   TableProperties,
+  LoaderCircle,
 } from "lucide-react";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -298,14 +296,9 @@ export function TableViewer() {
   if (loading) {
     return (
       <EmptyState
-        icon={RotateCw}
+        icon={LoaderCircle}
         title="Loading Data"
         description="Fetching table data, please wait..."
-        action={
-          <Button variant="outline" onClick={fetchTableData}>
-            Retry
-          </Button>
-        }
       />
     );
   }
@@ -313,7 +306,6 @@ export function TableViewer() {
   if (error) {
     return (
       <EmptyState
-        icon={XCircle}
         title="Notice"
         description={`Failed to load data: ${error}`}
         action={<Button onClick={fetchTableData}>Retry</Button>}
@@ -324,7 +316,6 @@ export function TableViewer() {
   if (!connectionId) {
     return (
       <EmptyState
-        icon={Database}
         title="No Connection Selected"
         description="Please select a database connection from the sidebar to view its tables."
       />
@@ -334,7 +325,6 @@ export function TableViewer() {
   if (!tableName) {
     return (
       <EmptyState
-        icon={Table2}
         title="No Table Selected"
         description="Select a table from the sidebar to view its data."
       />
