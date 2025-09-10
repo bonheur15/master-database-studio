@@ -61,9 +61,9 @@ function DeleteTriger({
   return (
     <Dialog>
       <DialogTrigger>
-        <Button className="w-6 text-xs bg-red-600 hover:bg-red-500 cursor-pointer h-5 ">
+        <div className=" px-1 rounded-md text-xs bg-red-600 hover:bg-red-500 cursor-pointer h-5 ">
           Drop
-        </Button>
+        </div>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>

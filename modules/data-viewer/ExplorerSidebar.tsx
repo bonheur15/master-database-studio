@@ -213,46 +213,44 @@ export function ExplorerSidebar() {
                   </p>
                 ) : (
                   filteredTables.map((table) => (
-                    <>
-                      <div className="flex w-full justify-between pr-4">
-                        <Link
-                          key={table.name}
-                          href={`/studio?connectionId=${connectionId}&tableName=${
-                            table.name
-                          }${
-                            selectedSchema ? `&schema=${selectedSchema}` : ""
-                          }`}
-                          onClick={() => setActiveTable(table.name)}
-                          className={cn(
-                            "flex items-center justify-between gap-3 rounded-md px-1 py-2 text-sm text-muted-foreground transition-all hover:bg-muted/50 group hover:text-foreground",
-                            activeTable === table.name &&
-                              "bg-muted/90 font-medium text-foreground dark:bg-muted"
-                          )}
-                        >
-                          <div className="flex items-center gap-2 relative">
-                            <Table className="h-4 w-4" />
-                            <span>
-                              {table.name.length > 7
-                                ? `${table.name.slice(0, 7)}..`
-                                : table.name}
-                            </span>
-                          </div>
-                          <Badge
-                            variant="secondary"
-                            className="font-mono text-xs"
-                          >
-                            {table.count.toLocaleString()}
-                          </Badge>
-                        </Link>
-
-                        {connected && (
-                          <DeleteTriger
-                            connection={connected}
-                            tableName={table.name}
-                          />
+                    <div
+                      className="flex w-full justify-between pr-4"
+                      key={table.name}
+                    >
+                      <Link
+                        href={`/studio?connectionId=${connectionId}&tableName=${
+                          table.name
+                        }${selectedSchema ? `&schema=${selectedSchema}` : ""}`}
+                        onClick={() => setActiveTable(table.name)}
+                        className={cn(
+                          "flex items-center justify-between gap-3 rounded-md px-1 py-2 text-sm text-muted-foreground transition-all hover:bg-muted/50 group hover:text-foreground",
+                          activeTable === table.name &&
+                            "bg-muted/90 font-medium text-foreground dark:bg-muted"
                         )}
-                      </div>
-                    </>
+                      >
+                        <div className="flex items-center gap-2 relative">
+                          <Table className="h-4 w-4" />
+                          <span>
+                            {table.name.length > 7
+                              ? `${table.name.slice(0, 7)}..`
+                              : table.name}
+                          </span>
+                        </div>
+                        <Badge
+                          variant="secondary"
+                          className="font-mono text-xs"
+                        >
+                          {table.count.toLocaleString()}
+                        </Badge>
+                      </Link>
+
+                      {connected && (
+                        <DeleteTriger
+                          connection={connected}
+                          tableName={table.name}
+                        />
+                      )}
+                    </div>
                   ))
                 )}
               </div>
@@ -261,7 +259,8 @@ export function ExplorerSidebar() {
         </AccordionItem>
       </Accordion>
 
-      <QueryEditorDialog />
+      {connected?.type === "mysql" ||
+        (connected?.type === "postgresql" && <QueryEditorDialog />)}
     </div>
   );
 }

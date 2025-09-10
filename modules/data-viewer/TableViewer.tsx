@@ -616,7 +616,14 @@ export function TableViewer() {
             </TableHeader>
             <TableBody>
               {loadingData ? (
-                <div>loading...</div>
+                <TableRow>
+                  <TableCell
+                    colSpan={tableSchema.columns.length + 2}
+                    className="text-center"
+                  >
+                    loading...
+                  </TableCell>
+                </TableRow>
               ) : (
                 paginatedData.map((row) => {
                   const rowId = primaryKeyColumn

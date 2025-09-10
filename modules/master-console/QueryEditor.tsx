@@ -26,13 +26,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+
 import {
   Table,
   TableBody,
@@ -89,9 +83,6 @@ export function QueryEditor() {
   }> | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
-  const [dbType, setDbType] = React.useState<
-    "mysql" | "postgresql" | "mongodb"
-  >("postgresql");
 
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
 
@@ -104,7 +95,6 @@ export function QueryEditor() {
   };
 
   const handleRunQuery = async () => {
-    console.log(activeTab, activeConnection, dbType);
     if (!activeTab || !activeConnection) {
       setError("No active connection or query tab.");
       return;
@@ -119,7 +109,7 @@ export function QueryEditor() {
     }
 
     const { data, error } = await executeQuery(
-      { ...activeConnection, type: dbType },
+      { ...activeConnection },
       activeTab.query
     );
 
@@ -135,7 +125,7 @@ export function QueryEditor() {
     if (activeTab) {
       try {
         const formatted = format(activeTab.query, {
-          language: dbType === "mongodb" ? "n1ql" : "sql",
+          language: activeConnection?.type === "mongodb" ? "n1ql" : "sql",
         });
         handleQueryChange(formatted);
       } catch (error) {
@@ -178,20 +168,9 @@ export function QueryEditor() {
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Select
-              onValueChange={(value: "mysql" | "postgresql" | "mongodb") =>
-                setDbType(value)
-              }
-              defaultValue={dbType}
-            >
-              <SelectTrigger className="w-[150px]">
-                <SelectValue placeholder="Select DB Type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="postgresql">PostgreSQL</SelectItem>
-                <SelectItem value="mysql">MySQL</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="border border-gray-400 py-1 px-2 rounded-md">
+              {activeConnection?.name}
+            </div>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button

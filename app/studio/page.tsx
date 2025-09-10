@@ -26,6 +26,8 @@ import { ExplorerSidebar } from "@/modules/data-viewer/ExplorerSidebar";
 import { TableViewer } from "@/modules/data-viewer/TableViewer";
 import { addConnection } from "@/lib/connection-storage";
 import { Connection } from "@/types/connection";
+import Image from "next/image";
+import Link from "next/link";
 
 export default function StudioLayout() {
   return (
@@ -79,13 +81,18 @@ function StudioPage() {
         {/* --- Desktop Sidebar --- */}
         <aside className="fixed inset-y-0 left-0 z-10 hidden w-[260px] flex-col border-r bg-background sm:flex">
           <div className="flex h-[60px] items-center border-b px-6">
-            <a className="flex items-center gap-2 font-semibold" href="#">
-              <DatabaseZap className="h-6 w-6 text-primary" />
-              <span className="text-xl font-bold tracking-tighter bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            <Link className="flex items-center gap-2 font-semibold" href="#">
+              <Image
+                src="./logo.png"
+                alt="portal studio"
+                width={20}
+                height={20}
+              />
+              <span className="text-xl font-bold tracking-tighter text-yellow-200 bg-clip-text ">
                 Portal studio{" "}
                 <span className="text-xs text-muted-foreground">beta</span>
               </span>
-            </a>
+            </Link>
           </div>
           <div className="flex-1 overflow-auto py-2">
             <Suspense>

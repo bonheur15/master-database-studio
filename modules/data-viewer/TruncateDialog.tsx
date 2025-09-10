@@ -55,9 +55,9 @@ function TruncateTrigger({
   return (
     <Dialog>
       <DialogTrigger>
-        <Button className="bg-red-600 hover:bg-red-500 cursor-pointer">
+        <div className="bg-red-600 hover:bg-red-500 cursor-pointer p-1 px-2 rounded-md">
           Truncate
-        </Button>
+        </div>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
