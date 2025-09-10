@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import { useEffect, useState } from "react";
 import JsonView from "react18-json-view";
 
 import { Toaster } from "@/components/ui/sonner";
@@ -21,7 +21,7 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
   connection,
   tableName,
 }) => {
-  const [mounted, SetMounted] = React.useState(false);
+  const [mounted, SetMounted] = useState(false);
 
   const handleEdit = async (params: any) => {
     const { indexOrName, newValue, parentPath }: jsonPayload = params;
@@ -48,7 +48,7 @@ const JsonViewer: React.FC<JsonViewerProps> = ({
         }
       } else {
         const result = await updateRow(connection, tableName, "_id", id, {
-          [fullPath]: newValue, // use full path here
+          [fullPath]: newValue,
         });
         if (result.success) {
           toast.success(result.message);

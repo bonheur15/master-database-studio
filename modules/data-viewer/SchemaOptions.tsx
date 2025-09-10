@@ -1,4 +1,3 @@
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,10 +19,8 @@ function SchemaOptions({
   console.log("here", schema);
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger>
-        <Button className="w-5 h-5">
-          <Plus />
-        </Button>
+      <DropdownMenuTrigger className="cursor-pointer bg-primary h-6 text-white rounded-md">
+        <Plus />
       </DropdownMenuTrigger>
       <DropdownMenuContent>
         <div className="flex flex-col  py-4 px-1  w-60">

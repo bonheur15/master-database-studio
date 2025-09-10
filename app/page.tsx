@@ -5,8 +5,8 @@ import { Footer } from "@/components/landing/Footer";
 
 export default function HomePage() {
   return (
-    <div className="flex min-h-screen flex-col bg-white">
-      <main className="flex-grow">
+    <div className="flex min-h-screen flex-col ">
+      <main className="flex-grow bg-white dark:bg-gray-950 ">
         <HeroSection />
         <FeaturesSection />
       </main>

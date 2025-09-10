@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Connection } from "@/types/connection";
-import { Trash2 } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -62,7 +61,9 @@ function DeleteTriger({
   return (
     <Dialog>
       <DialogTrigger>
-        <Trash2 className="w-5 h-5 rounded-sm cursor-pointer bg-red-600" />
+        <div className=" px-1 rounded-md text-xs bg-red-600 hover:bg-red-500 cursor-pointer h-5 ">
+          Drop
+        </div>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>

@@ -134,11 +134,11 @@ export default function AddColumnDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline">
+      <DialogTrigger asChild className="bg-primary">
+        <div className="border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex p-1 rounded-md cursor-pointer">
           <Plus />
           Add Columns
-        </Button>
+        </div>
       </DialogTrigger>
 
       <DialogContent className="sm:max-w-3xl w-full max-h-[calc(100vh-10rem)] overflow-scroll space-y-4">

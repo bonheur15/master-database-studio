@@ -91,14 +91,22 @@ export async function getTableData(
       };
     } else if (connection.type === "mongodb") {
       try {
-        const data = await getCollectionDocs({
+        const result = await getCollectionDocs({
           collection: tableName,
           connection,
+          page,
+          pagesize: pageSize,
         });
-        return {
-          success: true,
-          data: data,
-        };
+        if (result.success) {
+          return {
+            success: true,
+            data: result.data,
+            message: result.message,
+            totalPages: result.totalPages,
+          };
+        } else {
+          return { success: false, message: result.message };
+        }
       } catch (error) {
         console.error("Error fetching MongoDB data:", error);
         return {

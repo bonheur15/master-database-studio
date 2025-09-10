@@ -10,11 +10,9 @@ import {
   Search,
   Trash2,
   X,
-  Table2,
   Check,
-  XCircle,
-  Database,
   TableProperties,
+  LoaderCircle,
 } from "lucide-react";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { cn } from "@/lib/utils";
@@ -95,6 +93,7 @@ export function TableViewer() {
   const [tableData, setTableData] = useState<Record<string, unknown>[]>([]);
   const [tableSchema, setTableSchema] = useState<TableSchema | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [totalPages, setTotalPages] = useState<number | undefined>();
 
@@ -107,6 +106,7 @@ export function TableViewer() {
     {}
   );
   const [isAddRowDialogOpen, setIsAddRowDialogOpen] = useState(false);
+
   const [deleteAlert, setDeleteAlert] = useState<{
     open: boolean;
     rowIds: string[];
@@ -122,13 +122,12 @@ export function TableViewer() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const fetchTableData = useCallback(async () => {
-    if (!connectionId || !tableName) {
-      setLoading(false);
-      setError("No connection or table selected.");
+    if (!tableName) {
+      setLoadingData(false);
+      setError("No table selected.");
       return;
     }
-
-    setLoading(true);
+    setLoadingData(true);
     setError(null);
     try {
       const connections = await loadConnections();
@@ -148,11 +147,44 @@ export function TableViewer() {
       if (result.success && result.data) {
         setTableData(result.data as Record<string, unknown>[]);
         setTotalPages(result.totalPages);
+      } else {
+        throw new Error(result.message || "Failed to fetch table data.");
+      }
+    } catch (err) {
+      setError((err as Error).message);
+      setTableData([]);
+      setTableSchema(null);
+    } finally {
+      setLoadingData(false);
+      setSelectedRows([]);
+    }
+  }, [connectionId, tableName, schema, currentPage, rowsPerPage]);
+  const fetchTableSchema = useCallback(async () => {
+    if (!connectionId || !tableName) {
+      setLoading(false);
+      setError("No connection or table selected.");
+      return;
+    }
 
-        if (result.schema) {
-          setTableSchema(result.schema);
-          setVisibleColumns(result.schema.columns.map((col) => col.columnName));
-        }
+    setLoading(true);
+    setError(null);
+    try {
+      const connections = await loadConnections();
+      const currentConnection = connections.find(
+        (conn) => conn.id === connectionId
+      );
+      if (!currentConnection) throw new Error("Connection not found.");
+      setConnection(currentConnection);
+
+      const result = await getTableData(
+        currentConnection,
+        tableName,
+        schema ? schema : undefined
+      );
+
+      if (result.schema) {
+        setTableSchema(result.schema);
+        setVisibleColumns(result.schema.columns.map((col) => col.columnName));
       } else {
         throw new Error(result.message || "Failed to fetch table data.");
       }
@@ -164,12 +196,14 @@ export function TableViewer() {
       setLoading(false);
       setSelectedRows([]);
     }
-  }, [connectionId, tableName, schema, currentPage, rowsPerPage]);
+  }, [connectionId, tableName, schema]);
 
   if (connection) {
     console.log("hello from table", connection);
   }
-
+  useEffect(() => {
+    fetchTableSchema();
+  }, [fetchTableSchema]);
   useEffect(() => {
     fetchTableData();
   }, [fetchTableData]);
@@ -298,14 +332,9 @@ export function TableViewer() {
   if (loading) {
     return (
       <EmptyState
-        icon={RotateCw}
+        icon={LoaderCircle}
         title="Loading Data"
         description="Fetching table data, please wait..."
-        action={
-          <Button variant="outline" onClick={fetchTableData}>
-            Retry
-          </Button>
-        }
       />
     );
   }
@@ -313,7 +342,6 @@ export function TableViewer() {
   if (error) {
     return (
       <EmptyState
-        icon={XCircle}
         title="Notice"
         description={`Failed to load data: ${error}`}
         action={<Button onClick={fetchTableData}>Retry</Button>}
@@ -324,7 +352,6 @@ export function TableViewer() {
   if (!connectionId) {
     return (
       <EmptyState
-        icon={Database}
         title="No Connection Selected"
         description="Please select a database connection from the sidebar to view its tables."
       />
@@ -334,7 +361,6 @@ export function TableViewer() {
   if (!tableName) {
     return (
       <EmptyState
-        icon={Table2}
         title="No Table Selected"
         description="Select a table from the sidebar to view its data."
       />
@@ -357,6 +383,56 @@ export function TableViewer() {
             tableName={tableName}
           />
         </CardContent>
+        <CardFooter className="border-t pt-4">
+          <div className="flex items-center justify-between w-full">
+            <div className="text-sm text-muted-foreground">
+              {selectedRows.length} of {processedData.length} row(s) selected.
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="rows-per-page">Rows per page</Label>
+                <Select
+                  value={String(rowsPerPage)}
+                  onValueChange={(value) => {
+                    setRowsPerPage(Number(value));
+                    setCurrentPage(1);
+                  }}
+                >
+                  <SelectTrigger id="rows-per-page" className="h-8 w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10</SelectItem>
+                    <SelectItem value="20">20</SelectItem>
+                    <SelectItem value="50">50</SelectItem>
+                    <SelectItem value="100">100</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          </div>
+        </CardFooter>
       </Card>
     );
   }
@@ -539,103 +615,115 @@ export function TableViewer() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {paginatedData.map((row) => {
-                const rowId = primaryKeyColumn
-                  ? row[primaryKeyColumn]?.toString()
-                  : JSON.stringify(row);
-                return (
-                  <TableRow
-                    key={rowId}
-                    data-state={selectedRows.includes(rowId!) && "selected"}
+              {loadingData ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={tableSchema.columns.length + 2}
+                    className="text-center"
                   >
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedRows.includes(rowId!)}
-                        onCheckedChange={() => handleSelectRow(rowId!)}
-                        aria-label={`Select row ${rowId}`}
-                      />
-                    </TableCell>
-                    {tableSchema.columns
-                      .filter((c) => visibleColumns.includes(c.columnName))
-                      .map((col) => (
-                        <TableCell
-                          key={col.columnName}
-                          className="max-w-xs truncate"
-                        >
-                          {editingRowId === rowId ? (
-                            <Input
-                              value={
-                                typeof editingRowData[col.columnName] ===
-                                  "object" &&
-                                editingRowData[col.columnName] !== null
-                                  ? JSON.stringify(
-                                      editingRowData[col.columnName]
-                                    )
-                                  : editingRowData[col.columnName] !== undefined
-                                  ? String(editingRowData[col.columnName])
-                                  : ""
-                              }
-                              onChange={(e) =>
-                                setEditingRowData((prev) => ({
-                                  ...prev,
-                                  [col.columnName]: e.target.value,
-                                }))
-                              }
-                              className="h-8"
-                            />
-                          ) : (
-                            <span title={String(row[col.columnName])}>
-                              {row[col.columnName]?.toString()}
-                            </span>
-                          )}
-                        </TableCell>
-                      ))}
-                    <TableCell className="text-right">
-                      {editingRowId === rowId ? (
-                        <div className="flex gap-2 justify-end">
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={handleSaveEdit}
+                    loading...
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginatedData.map((row) => {
+                  const rowId = primaryKeyColumn
+                    ? row[primaryKeyColumn]?.toString()
+                    : JSON.stringify(row);
+                  return (
+                    <TableRow
+                      key={rowId}
+                      data-state={selectedRows.includes(rowId!) && "selected"}
+                    >
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedRows.includes(rowId!)}
+                          onCheckedChange={() => handleSelectRow(rowId!)}
+                          aria-label={`Select row ${rowId}`}
+                        />
+                      </TableCell>
+                      {tableSchema.columns
+                        .filter((c) => visibleColumns.includes(c.columnName))
+                        .map((col) => (
+                          <TableCell
+                            key={col.columnName}
+                            className="max-w-xs truncate"
                           >
-                            <Check className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => setEditingRowId(null)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button size="icon" variant="ghost">
-                              <MoreHorizontal className="h-4 w-4" />
+                            {editingRowId === rowId ? (
+                              <Input
+                                value={
+                                  typeof editingRowData[col.columnName] ===
+                                    "object" &&
+                                  editingRowData[col.columnName] !== null
+                                    ? JSON.stringify(
+                                        editingRowData[col.columnName]
+                                      )
+                                    : editingRowData[col.columnName] !==
+                                      undefined
+                                    ? String(editingRowData[col.columnName])
+                                    : ""
+                                }
+                                onChange={(e) =>
+                                  setEditingRowData((prev) => ({
+                                    ...prev,
+                                    [col.columnName]: e.target.value,
+                                  }))
+                                }
+                                className="h-8"
+                              />
+                            ) : (
+                              <span title={String(row[col.columnName])}>
+                                {row[col.columnName]?.toString()}
+                              </span>
+                            )}
+                          </TableCell>
+                        ))}
+                      <TableCell className="text-right">
+                        {editingRowId === rowId ? (
+                          <div className="flex gap-2 justify-end">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={handleSaveEdit}
+                            >
+                              <Check className="h-4 w-4" />
                             </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => handleEditClick(row)}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => setEditingRowId(null)}
                             >
-                              <Pencil className="mr-2 h-4 w-4" /> Edit Row
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive focus:bg-destructive/10"
-                              onClick={() => handleDeleteRequest([rowId!])}
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" /> Delete Row
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="icon" variant="ghost">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => handleEditClick(row)}
+                              >
+                                <Pencil className="mr-2 h-4 w-4" /> Edit Row
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                onClick={() => handleDeleteRequest([rowId!])}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete Row
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
             </TableBody>
           </Table>
         </CardContent>
@@ -699,7 +787,6 @@ export function TableViewer() {
           schema={tableSchema}
           connection={connection}
           tableName={tableName!}
-          onSuccess={fetchTableData}
           Schema={schema ? schema : undefined}
         />
       )}
