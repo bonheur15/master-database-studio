@@ -80,7 +80,7 @@ function StudioPage() {
       <div className="flex min-h-screen w-full flex-col bg-muted/40 dark:bg-muted/20">
         {/* --- Desktop Sidebar --- */}
         <aside className="fixed inset-y-0 left-0 z-10 hidden w-[260px] flex-col border-r bg-background sm:flex">
-          <div className="flex h-[60px] items-center border-b px-6">
+          <div className="flex h-[60px] items-center border-b px-6 bg-gray-800">
             <Link className="flex items-center gap-2 font-semibold" href="#">
               <Image
                 src="./logo.png"
@@ -88,9 +88,9 @@ function StudioPage() {
                 width={20}
                 height={20}
               />
-              <span className="text-xl font-bold tracking-tighter text-yellow-200 bg-clip-text ">
-                Portal studio{" "}
-                <span className="text-xs text-muted-foreground">beta</span>
+              <span className="text-xl font-bold tracking-tighter  text-yellow-200  bg-clip-text ">
+                Portal Studio{" "}
+                <span className="text-xs text-white/70">v.0.0.1</span>
               </span>
             </Link>
           </div>
