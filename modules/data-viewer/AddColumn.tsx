@@ -135,7 +135,7 @@ export default function AddColumnDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild className="bg-primary">
-        <div className="border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex p-1 rounded-md cursor-pointer">
+        <div className="border bg-transparent shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50 flex p-1 rounded-md cursor-pointer">
           <Plus />
           Add Columns
         </div>
